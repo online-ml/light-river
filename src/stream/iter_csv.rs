@@ -1,12 +1,12 @@
 use csv::{self, Reader, ReaderBuilder};
 use num::Float;
-use std::io::BufReader;
+use std::collections::HashMap;
 use std::marker::PhantomData;
-use std::{collections::HashMap, fs::File, path::Path};
 enum Target {
     Name(String),
     MultipleNames(Vec<String>),
 }
+
 impl Target {
     fn contains(&self, name: &str) -> bool {
         match self {
@@ -40,11 +40,6 @@ impl<F: Float + std::str::FromStr> DataStream<F> {
             DataStream::XY(_, y) => Ok(y),
         }
     }
-}
-
-enum PathOrReader<R> {
-    Path(String),
-    Reader(csv::Reader<R>),
 }
 
 struct IterCsv<F: Float + std::str::FromStr, R: std::io::Read> {
@@ -130,8 +125,7 @@ impl<F: Float + std::str::FromStr, R: std::io::Read> Iterator for IterCsv<F, R> 
 mod tests {
     use super::*;
     use maplit::hashmap;
-    use std::collections::{hash_map, HashMap};
-    use std::path::PathBuf;
+    use std::{collections::HashMap, fs::File};
     use tempfile::tempdir;
 
     fn result() -> Vec<HashMap<String, HashMap<String, Data<f32>>>> {
