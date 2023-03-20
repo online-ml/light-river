@@ -1,6 +1,7 @@
 use csv::{self, Reader, ReaderBuilder};
 use num::Float;
 use std::io::BufReader;
+use std::marker::PhantomData;
 use std::{collections::HashMap, fs::File, path::Path};
 enum Target {
     Name(String),
@@ -15,7 +16,7 @@ impl Target {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 enum Data<F: Float + std::str::FromStr> {
     Scalar(F),
     String(String),
@@ -50,27 +51,19 @@ struct IterCsv<F: Float + std::str::FromStr, R: std::io::Read> {
     reader: Reader<R>,
     headers: csv::StringRecord,
     y_cols: Option<Target>,
-    data_stream: Option<DataStream<F>>,
+    data_stream: PhantomData<DataStream<F>>,
 }
 
 impl<F: Float + std::str::FromStr, R: std::io::Read> IterCsv<F, R> {
     fn new(reader: R, y_cols: Option<Target>) -> Result<Self, csv::Error> {
         let mut reader = ReaderBuilder::new().has_headers(true).from_reader(reader);
         let headers = reader.headers()?.to_owned();
-        let data_stream = None;
         Ok(Self {
             reader,
             headers,
             y_cols,
-            data_stream,
+            data_stream: PhantomData,
         })
-    }
-    fn from_path<P: AsRef<Path>>(path: P, y_cols: Option<Target>) -> Result<Self, csv::Error> {
-        let file = File::open(path)?;
-        let reader = BufReader::new(file);
-        let mut reader = ReaderBuilder::new().has_headers(true).from_reader(reader);
-        let iter_csv = IterCsv::<F, BufReader<File>>::new(reader, y_cols)?;
-        Ok(iter_csv)
     }
 }
 
@@ -136,38 +129,86 @@ impl<F: Float + std::str::FromStr, R: std::io::Read> Iterator for IterCsv<F, R> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
-    use std::io::Cursor;
+    use maplit::hashmap;
+    use std::collections::{hash_map, HashMap};
     use std::path::PathBuf;
     use tempfile::tempdir;
 
-    fn create_temp_file(content: &str) -> PathBuf {
+    fn result() -> Vec<HashMap<String, HashMap<String, Data<f32>>>> {
+        vec![
+            hashmap! {
+                "x".to_string() => hashmap!{
+                    "Name".to_string() => Data::<f32>::String("Alice".to_string()),
+                    "Height".to_string() => Data::<f32>::Scalar(1.6),
+                    "Weight".to_string() => Data::<f32>::Scalar(60.0),
+                },
+                "y".to_string() => hashmap!{
+                    "Score".to_string() => Data::<f32>::Scalar(90.0)
+                }
+            },
+            hashmap! {
+                "x".to_string() => hashmap!{
+                    "Name".to_string() => Data::<f32>::String("Bob".to_string()),
+                    "Height".to_string() => Data::<f32>::Scalar(1.8),
+                    "Weight".to_string() => Data::<f32>::Scalar(80.0),
+                },
+                "y".to_string() => hashmap!{
+                    "Score".to_string() => Data::<f32>::Scalar(85.0),
+                }
+            },
+        ]
+    }
+
+    #[test]
+    fn test_with_target() {
+        let content = "Name,Height,Weight,Score\nAlice,1.6,60.0,90.0\nBob,1.8,80.0,85.0";
+        let result = result();
+
+        let iter_csv =
+            IterCsv::<f32, &[u8]>::new(content.as_bytes(), Some(Target::Name("Score".to_string())))
+                .unwrap();
+
+        for (i, line) in iter_csv.enumerate() {
+            let line = line.unwrap();
+            assert_eq!(line.get_x(), &result[i]["x"]);
+            assert_eq!(line.get_y().unwrap(), &result[i]["y"]);
+            assert!(line.get_y().is_ok());
+        }
+    }
+
+    #[test]
+    fn test_iter_without_target() {
+        let content = "Name,Height,Weight\nAlice,1.6,60.0\nBob,1.8,80.0";
+        let result = result();
+
+        let iter_csv = IterCsv::<f32, &[u8]>::new(content.as_bytes(), None).unwrap();
+
+        for (i, line) in iter_csv.enumerate() {
+            let line = line.unwrap();
+            assert_eq!(line.get_x(), &result[i]["x"]);
+            assert!(line.get_y().is_err());
+        }
+    }
+
+    #[test]
+    fn test_iter_with_file() {
         let dir = tempdir().expect("failed to create temp dir");
         let file_path = dir.path().join("test.csv");
-        std::fs::write(&file_path, content).expect("failed to write temp file");
-        file_path
-    }
-    #[test]
-    fn test_iter_csv() {
-        let path = "";
-        //         let content = "Name,Height,Weight,Score
-        // Alice,1.6,60.0,90.0
-        // Bob,1.8,80.0,85.0
-        // Charlie,1.7,70.0,92.5
-        // David,1.9,90.0,87.0
-        //         ";
+        std::fs::write(
+            &file_path,
+            "Name,Height,Weight\nAlice,1.6,60.0\nBob,1.8,80.0",
+        )
+        .expect("failed to write temp file");
 
-        // let cursor = Cursor::new(content);
-        // let iter_csv: IterCsv<f32, Cursor<&str>> =
-        //     IterCsv::new(cursor, Some(Target::Name("Score".to_string()))).unwrap();
+        let file = File::open(file_path).unwrap();
+        let result = result();
 
-        let iter_csv: IterCsv<f32, Cursor<&str>> =
-            IterCsv::new(path, Some(Target::Name("Score".to_string()))).unwrap();
-        for data_stream in iter_csv {
-            let x_data = data_stream.as_ref().unwrap().get_x();
-            let y_data = data_stream.as_ref().unwrap().get_y();
-            println!("{:?}", x_data);
-            println!("{:?}", y_data);
+        let iter_csv = IterCsv::<f32, File>::new(file, None).unwrap();
+
+        for (i, line) in iter_csv.enumerate() {
+            let line = line.unwrap();
+            assert_eq!(line.get_x(), &result[i]["x"]);
+            assert!(line.get_y().is_err());
         }
     }
 }
