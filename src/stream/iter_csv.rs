@@ -1,10 +1,10 @@
 use csv::{self, Reader, ReaderBuilder};
 use num::Float;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 enum Target {
     Name(String),
-    MultipleNames(Vec<String>),
+    MultipleNames(HashSet<String>),
 }
 
 impl Target {
@@ -124,7 +124,7 @@ impl<F: Float + std::str::FromStr, R: std::io::Read> Iterator for IterCsv<F, R> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use maplit::hashmap;
+    use maplit::{hashmap, hashset};
     use std::{collections::HashMap, fs::File};
     use tempfile::tempdir;
 
@@ -205,4 +205,38 @@ mod tests {
             assert!(line.get_y().is_err());
         }
     }
+
+    #[test]
+    fn test_iter_multiple_target() {
+   
+        let content = "Name,Height,Weight\nAlice,1.6,60.0\nBob,1.8,80.0";
+        let result = vec![hashmap! {
+                "x".to_string() => hashmap!{
+                    "Name".to_string() => Data::<f32>::String("Alice".to_string()),
+                },
+                "y".to_string() => hashmap!{
+                    "Height".to_string() => Data::<f32>::Scalar(1.6),
+                    "Weight".to_string() => Data::<f32>::Scalar(60.0),
+                }
+            },
+            hashmap! {
+                "x".to_string() => hashmap!{
+                    "Name".to_string() => Data::<f32>::String("Bob".to_string()),
+                },
+                "y".to_string() => hashmap!{
+                    "Height".to_string() => Data::<f32>::Scalar(1.8),
+                    "Weight".to_string() => Data::<f32>::Scalar(80.0),
+                }
+            }];
+
+        let iter_csv = IterCsv::<f32, &[u8]>::new(content.as_bytes(), Some(Target::MultipleNames(hashset!{"Height".to_string(), "Weight".to_string()}))).unwrap();
+
+        for (i, line) in iter_csv.enumerate() {
+            let line = line.unwrap();
+            assert_eq!(line.get_x(), &result[i]["x"]);
+            assert_eq!(line.get_y().unwrap(), &result[i]["y"]);
+            assert!(line.get_y().is_ok());
+        }
+    }
+
 }
