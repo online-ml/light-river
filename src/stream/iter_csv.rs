@@ -208,9 +208,9 @@ mod tests {
 
     #[test]
     fn test_iter_multiple_target() {
-   
         let content = "Name,Height,Weight\nAlice,1.6,60.0\nBob,1.8,80.0";
-        let result = vec![hashmap! {
+        let result = vec![
+            hashmap! {
                 "x".to_string() => hashmap!{
                     "Name".to_string() => Data::<f32>::String("Alice".to_string()),
                 },
@@ -227,9 +227,16 @@ mod tests {
                     "Height".to_string() => Data::<f32>::Scalar(1.8),
                     "Weight".to_string() => Data::<f32>::Scalar(80.0),
                 }
-            }];
+            },
+        ];
 
-        let iter_csv = IterCsv::<f32, &[u8]>::new(content.as_bytes(), Some(Target::MultipleNames(hashset!{"Height".to_string(), "Weight".to_string()}))).unwrap();
+        let iter_csv = IterCsv::<f32, &[u8]>::new(
+            content.as_bytes(),
+            Some(Target::MultipleNames(
+                hashset! {"Height".to_string(), "Weight".to_string()},
+            )),
+        )
+        .unwrap();
 
         for (i, line) in iter_csv.enumerate() {
             let line = line.unwrap();
@@ -238,5 +245,4 @@ mod tests {
             assert!(line.get_y().is_ok());
         }
     }
-
 }
