@@ -1,4 +1,3 @@
-use std::io::Read;
 use std::fs::File;
 use std::path::Path;
 use zip::ZipArchive;

@@ -4,7 +4,7 @@ use crate::datasets::utils;
 use crate::stream::iter_csv::{IterCsv, Target};
 
 impl CreditCard {
-    pub fn new() -> Result<IterCsv<f32, File>,  Box<dyn std::error::Error>> {
+    pub fn load_credit_card_transactions() -> Result<IterCsv<f32, File>,  Box<dyn std::error::Error>> {
         let url = "https://maxhalford.github.io/files/datasets/creditcardfraud.zip";
         let file_name = "creditcard.csv";
 
