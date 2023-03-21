@@ -11,8 +11,8 @@ impl CreditCard {
         if !Path::new(file_name).exists() {
             utils::download_zip_file(url, file_name)?
         }
-
         let file = File::open(file_name).unwrap();
+        
         match IterCsv::<f32, File>::new(file, Some(Target::Name("Class".to_string()))) {
             Ok(x) => Ok(x),
             Err(e) => Err(Box::new(e))
