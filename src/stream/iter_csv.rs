@@ -2,7 +2,14 @@ use csv::{self, Reader, ReaderBuilder};
 use num::Float;
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
-enum Target {
+
+pub struct IterCsv<F: Float + std::str::FromStr, R: std::io::Read> {
+    reader: Reader<R>,
+    headers: csv::StringRecord,
+    y_cols: Option<Target>,
+    data_stream: PhantomData<DataStream<F>>,
+}
+pub enum Target {
     Name(String),
     MultipleNames(HashSet<String>),
 }
@@ -17,24 +24,25 @@ impl Target {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-enum Data<F: Float + std::str::FromStr> {
+pub enum Data<F: Float + std::str::FromStr> {
     Scalar(F),
     String(String),
 }
 
-enum DataStream<F: Float + std::str::FromStr> {
+pub enum DataStream<F: Float + std::str::FromStr> {
     X(HashMap<String, Data<F>>),
     XY(HashMap<String, Data<F>>, HashMap<String, Data<F>>),
 }
 
 impl<F: Float + std::str::FromStr> DataStream<F> {
-    fn get_x(&self) -> &HashMap<String, Data<F>> {
+    pub fn get_x(&self) -> &HashMap<String, Data<F>> {
         match self {
             DataStream::X(x) => x,
             DataStream::XY(x, _) => x,
         }
     }
-    fn get_y(&self) -> Result<&HashMap<String, Data<F>>, &str> {
+
+    pub fn get_y(&self) -> Result<&HashMap<String, Data<F>>, &str> {
         match self {
             DataStream::X(_) => Err("No y data"),
             DataStream::XY(_, y) => Ok(y),
@@ -42,15 +50,9 @@ impl<F: Float + std::str::FromStr> DataStream<F> {
     }
 }
 
-struct IterCsv<F: Float + std::str::FromStr, R: std::io::Read> {
-    reader: Reader<R>,
-    headers: csv::StringRecord,
-    y_cols: Option<Target>,
-    data_stream: PhantomData<DataStream<F>>,
-}
 
 impl<F: Float + std::str::FromStr, R: std::io::Read> IterCsv<F, R> {
-    fn new(reader: R, y_cols: Option<Target>) -> Result<Self, csv::Error> {
+    pub fn new(reader: R, y_cols: Option<Target>) -> Result<Self, csv::Error> {
         let mut reader = ReaderBuilder::new().has_headers(true).from_reader(reader);
         let headers = reader.headers()?.to_owned();
         Ok(Self {

@@ -1,4 +1,6 @@
 pub mod stream;
+pub mod datasets;
+
 #[cfg(test)]
 mod tests {
     #[test]
