@@ -3,7 +3,10 @@ use std::fs::File;
 use std::path::Path;
 use zip::ZipArchive;
 
-pub fn download_zip_file(url: &str, file_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn download_zip_file(
+    url: &str,
+    file_name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     let client = Client::new();
     let response = client.get(url).send()?;
     let body = response.bytes()?;
