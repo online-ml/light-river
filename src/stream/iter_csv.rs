@@ -1,55 +1,31 @@
 use csv::{self, Reader, ReaderBuilder};
 use num::Float;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::marker::PhantomData;
 
+use super::data_stream::{Data, DataStream, Target};
+
+/// Iterates over rows from a CSV element who implement std::io::Read.
+/// # Exemple
+/// ```
+/// use light_river::stream::iter_csv::IterCsv;
+/// use light_river::stream::data_stream::Target;
+///
+/// let content = "Name,Height,Weight,Score\nAlice,1.6,60.0,90.0\nBob,1.8,80.0,85.0";
+/// let iter_csv = IterCsv::<f32, &[u8]>::new(content.as_bytes(), Some(Target::Name("Score".to_string()))).unwrap();
+///
+/// for (i, line) in iter_csv.enumerate() {
+///         let line = line.unwrap();
+///         println!("Data: {:?}", line.get_x());
+///         println!("Target: {:?}", line.get_y().unwrap());
+/// }
+/// ```
 pub struct IterCsv<F: Float + std::str::FromStr, R: std::io::Read> {
     reader: Reader<R>,
     headers: csv::StringRecord,
     y_cols: Option<Target>,
     data_stream: PhantomData<DataStream<F>>,
 }
-pub enum Target {
-    Name(String),
-    MultipleNames(HashSet<String>),
-}
-
-impl Target {
-    fn contains(&self, name: &str) -> bool {
-        match self {
-            Target::Name(n) => n == name,
-            Target::MultipleNames(names) => names.contains(&name.to_string()),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum Data<F: Float + std::str::FromStr> {
-    Scalar(F),
-    String(String),
-}
-
-pub enum DataStream<F: Float + std::str::FromStr> {
-    X(HashMap<String, Data<F>>),
-    XY(HashMap<String, Data<F>>, HashMap<String, Data<F>>),
-}
-
-impl<F: Float + std::str::FromStr> DataStream<F> {
-    pub fn get_x(&self) -> &HashMap<String, Data<F>> {
-        match self {
-            DataStream::X(x) => x,
-            DataStream::XY(x, _) => x,
-        }
-    }
-
-    pub fn get_y(&self) -> Result<&HashMap<String, Data<F>>, &str> {
-        match self {
-            DataStream::X(_) => Err("No y data"),
-            DataStream::XY(_, y) => Ok(y),
-        }
-    }
-}
-
 
 impl<F: Float + std::str::FromStr, R: std::io::Read> IterCsv<F, R> {
     pub fn new(reader: R, y_cols: Option<Target>) -> Result<Self, csv::Error> {

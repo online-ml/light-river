@@ -1,7 +1,7 @@
+use reqwest::blocking::Client;
 use std::fs::File;
 use std::path::Path;
 use zip::ZipArchive;
-use reqwest::blocking::Client;
 
 pub fn download_zip_file(url: &str, file_name: &str) -> Result<(), Box<dyn std::error::Error>> {
     let client = Client::new();
