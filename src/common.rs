@@ -57,6 +57,11 @@ type ClassifierTargetProbabilities<
     F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign,
 > = HashMap<ClassifierTarget, F>;
 
+enum ClassifierOutput<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> {
+    Probabilities(ClassifierTargetProbabilities<F>),
+    Prediction(ClassifierTarget),
+}
+
 /// Represents a regression target using a Float value.
 ///
 /// ```
