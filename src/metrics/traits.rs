@@ -54,3 +54,10 @@ pub trait ClustringMetric<F: Float + FromPrimitive + AddAssign + SubAssign + Mul
     fn revert(&mut self, y_true: i32, y_pred: i32);
     fn get(&self) -> F;
 }
+
+pub enum Metric<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> {
+    Binary(Box<dyn BinaryMetric<F>>),
+    MultiClass(Box<dyn MultiClassMetric<F>>),
+    Regression(Box<dyn RegressionMetric<F>>),
+    Clustring(Box<dyn ClustringMetric<F>>),
+}
