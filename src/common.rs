@@ -177,7 +177,6 @@ where
 /// use std::collections::HashMap;
 /// use light_river::common::{ClassifierTarget, ClassifierTargetProbabilities};
 /// use num::Float;
-//
 ///
 /// let mut probs: ClassifierTargetProbabilities<f32> = HashMap::new();
 /// probs.insert(ClassifierTarget::Bool(true), 0.7);
@@ -220,6 +219,17 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> C
                     .0
                     .clone()
             }
+        }
+    }
+    pub fn get_probabilities(&self) -> ClassifierTargetProbabilities<F> {
+        // If we had only the prediction we set the probability to 1.0
+        match self {
+            ClassifierOutput::Prediction(y) => {
+                let mut probs = ClassifierTargetProbabilities::new();
+                probs.insert(y.clone(), F::from(1.0).unwrap());
+                probs
+            }
+            ClassifierOutput::Probabilities(y) => y.clone(),
         }
     }
 }
