@@ -139,6 +139,23 @@ impl From<bool> for ClassifierTarget {
         ClassifierTarget::Bool(b)
     }
 }
+impl From<&bool> for ClassifierTarget {
+    fn from(b: &bool) -> Self {
+        ClassifierTarget::Bool(*b)
+    }
+}
+
+impl From<&i32> for ClassifierTarget {
+    fn from(i: &i32) -> Self {
+        ClassifierTarget::Int(*i)
+    }
+}
+
+impl From<&String> for ClassifierTarget {
+    fn from(s: &String) -> Self {
+        ClassifierTarget::String(s.clone())
+    }
+}
 
 pub trait IntoClassifierTargetIter {
     fn into_classifier_target_iter(self) -> Box<dyn Iterator<Item = ClassifierTarget>>;
@@ -160,8 +177,7 @@ where
 /// use std::collections::HashMap;
 /// use light_river::common::{ClassifierTarget, ClassifierTargetProbabilities};
 /// use num::Float;
-///
-/// type ClassifierTargetProbabilities<F: Float> = HashMap<ClassifierTarget, F>;
+//
 ///
 /// let mut probs: ClassifierTargetProbabilities<f32> = HashMap::new();
 /// probs.insert(ClassifierTarget::Bool(true), 0.7);
