@@ -13,3 +13,10 @@ maplit = "1.0.2"
 reqwest = { version = "0.11.4", features = ["blocking"] }
 zip = "0.6.4"
 rand = "0.8.5"
+time = "0.3.29"
+
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+opt-level = 3
