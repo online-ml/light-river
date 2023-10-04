@@ -1,4 +1,5 @@
-# Mini river
 Cargo.lock
-
+.DS_Store
 target/
+*.csv
+*.zip
