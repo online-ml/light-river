@@ -2,6 +2,7 @@ use csv::WriterBuilder;
 use light_river::datasets::credit_card::CreditCard;
 use light_river::stream::data_stream::{Data, DataStream};
 use rand::prelude::*;
+
 #[allow(dead_code)]
 #[allow(unused_imports)]
 #[allow(unused_variables)]
@@ -180,8 +181,6 @@ fn main() {
                 };
             }
         }
-        // Output score to CSV
-        let _ = csv_writer.serialize(score);
 
         // UPDATE
         for tree in 0..n_trees {
@@ -234,6 +233,9 @@ fn main() {
             hst.l_mass.fill(0.0);
             counter = 0;
         }
+
+        // Output score to CSV
+        let _ = csv_writer.serialize(score);
     }
 
     let _ = csv_writer.flush();
