@@ -3,14 +3,14 @@ from river import datasets
 from time import time
 
 scores = []
-start = time()
 hst = anomaly.HalfSpaceTrees(
     n_trees=50,
     height=6,
     window_size=1000,
 )
-
-for x, _ in datasets.CreditCard():
+dataset = [x for x, _ in datasets.CreditCard()]
+start = time()
+for x in dataset:
     score = hst.score_one(x)
     scores.append(score)
     hst.learn_one(x)
