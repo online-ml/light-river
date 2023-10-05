@@ -17,3 +17,5 @@ ROC AUC appears roughly similar between the Python and Rust implementations. Not
 Using `with_capacity` on each `Vec` in `HST`, as well as the list of HSTs, we gain 1 second. We are now at **~5 seconds**.
 
 We can't find a nice profiler. So for now we comment code and measure time.
+
+Storing all attributes in a single array, instead of one array per tree, makes us reach **~3 seconds**.

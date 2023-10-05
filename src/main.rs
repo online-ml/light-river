@@ -33,15 +33,15 @@ struct HST {
 }
 
 impl HST {
-    fn new(height: u32, features: &Vec<String>, rng: &mut ThreadRng) -> Self {
+    fn new(n_trees: u32, height: u32, features: &Vec<String>, rng: &mut ThreadRng) -> Self {
         // TODO: padding
         // TODO: handle non [0, 1] features
         // TODO: weighted sampling of features
 
         // #nodes = 2 ^ height - 1
-        let n_nodes: usize = usize::try_from(u32::pow(2, height) - 1).unwrap();
+        let n_nodes: usize = usize::try_from(n_trees * u32::pow(2, height) - 1).unwrap();
         // #branches = 2 ^ (height - 1) - 1
-        let n_branches = usize::try_from(u32::pow(2, height - 1) - 1).unwrap();
+        let n_branches = usize::try_from(n_trees * u32::pow(2, height - 1) - 1).unwrap();
 
         // Helper function to create and populate a Vec with a given capacity
         fn init_vec<T>(capacity: usize, default_value: T) -> Vec<T>
@@ -122,10 +122,9 @@ fn main() {
     let start = SystemTime::now();
     // INITIALIZATION
 
-    let mut trees: Vec<HST> = Vec::with_capacity(n_trees as usize);
-    for _ in 0..n_trees {
-        trees.push(HST::new(height, &features, &mut rng));
-    }
+    let mut hst = HST::new(n_trees, height, &features, &mut rng);
+    let n_nodes = u32::pow(2, height) - 1;
+    let n_branches = u32::pow(2, height - 1) - 1;
 
     // LOOP
 
@@ -136,20 +135,20 @@ fn main() {
 
         // SCORE
         let mut score: f32 = 0.0;
-        for tree in trees.iter() {
-            let depth: u32 = 0;
+
+        for tree in 0..n_trees {
+            let offset: u32 = tree * n_nodes;
             let mut node: u32 = 0;
-            loop {
-                score += tree.r_mass[node as usize] * u32::pow(2, depth) as f32;
+            for depth in 0..height {
+                score += hst.r_mass[(offset + node) as usize] * u32::pow(2, depth) as f32;
                 // Stop if the node is a leaf or if the mass of the node is too small
-                if (node >= tree.feature.len() as u32) || (tree.r_mass[node as usize] < size_limit)
-                {
+                if node >= n_nodes || (hst.r_mass[(offset + node) as usize] < size_limit) {
                     break;
                 }
                 // Get the feature and threshold of the current node so that we can determine
                 // whether to go left or right
-                let feature = &tree.feature[node as usize];
-                let threshold = tree.threshold[node as usize];
+                let feature = &hst.feature[(offset + node) as usize];
+                let threshold = hst.threshold[(offset + node) as usize];
 
                 // Get the value of the current feature
                 let value = match line.get_x().get(feature) {
@@ -170,8 +169,8 @@ fn main() {
                     // If the feature is missing, go down both branches and select the node with the
                     // the biggest l_mass
                     None => {
-                        if tree.l_mass[left_child(node) as usize]
-                            < tree.l_mass[right_child(node) as usize]
+                        if hst.l_mass[(offset + left_child(node)) as usize]
+                            < hst.l_mass[(offset + right_child(node)) as usize]
                         {
                             right_child(node)
                         } else {
@@ -185,20 +184,21 @@ fn main() {
         let _ = csv_writer.serialize(score);
 
         // UPDATE
-        for tree in trees.iter_mut() {
+        for tree in 0..n_trees {
             // Walk over the tree
+            let offset: u32 = tree * n_nodes;
             let mut node: u32 = 0;
-            loop {
+            for _ in 0..height {
                 // Update the l_mass
-                tree.l_mass[node as usize] += 1.0;
+                hst.l_mass[0 as usize] += 1.0;
                 // Stop if the node is a leaf
-                if node >= tree.feature.len() as u32 {
-                    break;
-                }
+                // if node >= n_branches {
+                //     break;
+                // }
                 // Get the feature and threshold of the current node so that we can determine
                 // whether to go left or right
-                let feature = &tree.feature[node as usize];
-                let threshold = tree.threshold[node as usize];
+                let feature = &hst.feature[0 as usize];
+                let threshold = hst.threshold[0 as usize];
 
                 // Get the value of the current feature
                 node = match line.get_x().get(feature) {
@@ -214,8 +214,8 @@ fn main() {
                     None => {
                         // If the feature is missing, go down both branches and select the node with the
                         // the biggest l_mass
-                        if tree.l_mass[left_child(node) as usize]
-                            > tree.l_mass[right_child(node) as usize]
+                        if hst.l_mass[(offset + left_child(node)) as usize]
+                            > hst.l_mass[(offset + right_child(node)) as usize]
                         {
                             left_child(node)
                         } else {
@@ -229,10 +229,8 @@ fn main() {
         // Pivot if the window is full
         counter += 1;
         if counter == window_size {
-            trees.iter_mut().for_each(|tree| {
-                mem::swap(&mut tree.r_mass, &mut tree.l_mass);
-                tree.l_mass.fill(0.0);
-            });
+            mem::swap(&mut hst.r_mass, &mut hst.l_mass);
+            hst.l_mass.fill(0.0);
             counter = 0;
         }
 
