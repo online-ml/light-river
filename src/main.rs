@@ -1,3 +1,8 @@
+// TODO: padding
+// TODO: handle non [0, 1] features
+// TODO: weighted sampling of features
+// TODO: early stopping in walk
+
 use csv::WriterBuilder;
 use light_river::datasets::credit_card::CreditCard;
 use light_river::stream::data_stream::{Data, DataStream};
@@ -35,10 +40,6 @@ struct HST {
 
 impl HST {
     fn new(n_trees: u32, height: u32, features: &Vec<String>, rng: &mut ThreadRng) -> Self {
-        // TODO: padding
-        // TODO: handle non [0, 1] features
-        // TODO: weighted sampling of features
-
         // #nodes = 2 ^ height - 1
         let n_nodes: usize = usize::try_from(n_trees * (u32::pow(2, height) - 1)).unwrap();
         // #branches = 2 ^ (height - 1) - 1
@@ -83,9 +84,8 @@ fn main() {
 
     let window_size: u32 = 1000;
     let mut counter: u32 = 0;
-    let size_limit = 0.1 * window_size as f32;
     let n_trees: u32 = 50;
-    let height: u32 = 2;
+    let height: u32 = 6;
     let features: Vec<String> = vec![
         String::from("V1"),
         String::from("V2"),
