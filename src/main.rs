@@ -41,13 +41,25 @@ impl HST {
         let n_nodes: usize = usize::try_from(u32::pow(2, height) - 1).unwrap();
         // #branches = 2 ^ (height - 1) - 1
         let n_branches = usize::try_from(u32::pow(2, height - 1) - 1).unwrap();
+
+        // Helper function to create and populate a Vec with a given capacity
+        fn init_vec<T>(capacity: usize, default_value: T) -> Vec<T>
+        where
+            T: Clone,
+        {
+            let mut vec = Vec::with_capacity(capacity);
+            vec.resize(capacity, default_value);
+            vec
+        }
+
         // Allocate memory for the HST
         let mut hst = HST {
-            feature: vec![String::from(""); usize::try_from(n_branches).unwrap()],
-            threshold: vec![0.0; usize::try_from(n_branches).unwrap()],
-            l_mass: vec![0.0; usize::try_from(n_nodes).unwrap()],
-            r_mass: vec![0.0; usize::try_from(n_nodes).unwrap()],
+            feature: init_vec(n_branches, String::from("")),
+            threshold: init_vec(n_branches, 0.0),
+            l_mass: init_vec(n_nodes, 0.0),
+            r_mass: init_vec(n_nodes, 0.0),
         };
+
         // Randomly assign features and thresholds to each branch
         for branch in 0..n_branches {
             let feature = features.choose(rng).unwrap();
@@ -109,7 +121,7 @@ fn main() {
     let start = SystemTime::now();
     // INITIALIZATION
 
-    let mut trees: Vec<HST> = Vec::new();
+    let mut trees: Vec<HST> = Vec::with_capacity(n_trees as usize);
     for _ in 0..n_trees {
         trees.push(HST::new(height, features.clone(), &mut rng));
     }
@@ -118,7 +130,7 @@ fn main() {
 
     let transactions = CreditCard::load_credit_card_transactions().unwrap();
 
-    for (i, transaction) in transactions.enumerate() {
+    for transaction in transactions {
         let line = transaction.unwrap();
 
         // SCORE
