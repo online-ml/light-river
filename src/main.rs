@@ -11,6 +11,7 @@ use rand::prelude::*;
 #[allow(unused_parens)]
 use std::convert::TryFrom;
 use std::fs::File;
+use std::mem;
 use std::time::SystemTime;
 
 // Return the index of a node's left child node.
@@ -228,14 +229,8 @@ fn main() {
         // Pivot if the window is full
         counter += 1;
         if counter == window_size {
-            // for tree in trees.iter_mut() {
-            //     for node in 0..tree.l_mass.len() {
-            //         tree.r_mass[node] = tree.l_mass[node];
-            //         tree.l_mass[node] = 0.0;
-            //     }
-            // }
             trees.iter_mut().for_each(|tree| {
-                tree.r_mass.copy_from_slice(&tree.l_mass);
+                mem::swap(&mut tree.r_mass, &mut tree.l_mass);
                 tree.l_mass.fill(0.0);
             });
             counter = 0;
