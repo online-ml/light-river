@@ -1,6 +1,6 @@
 use csv::WriterBuilder;
 use light_river::datasets::credit_card::CreditCard;
-use light_river::stream::data_stream::Data;
+use light_river::stream::data_stream::{Data, DataStream};
 use rand::prelude::*;
 #[allow(dead_code)]
 #[allow(unused_imports)]
@@ -119,7 +119,6 @@ fn main() {
     ];
     let mut rng = rand::thread_rng();
 
-    let start = SystemTime::now();
     // INITIALIZATION
 
     let mut hst = HST::new(n_trees, height, &features, &mut rng);
@@ -127,12 +126,16 @@ fn main() {
     let n_branches = u32::pow(2, height - 1) - 1;
 
     // LOOP
-
+    // We collect the dataset in a vector of DataStream we won't to take the reading csv time into account
     let transactions = CreditCard::load_credit_card_transactions().unwrap();
+    let mut dataset: Vec<DataStream<f32>> = Vec::new();
 
     for transaction in transactions {
-        let line = transaction.unwrap();
+        dataset.push(transaction.unwrap());
+    }
 
+    let start = SystemTime::now();
+    for line in dataset.iter() {
         // SCORE
         let mut score: f32 = 0.0;
         for tree in 0..n_trees {
@@ -238,7 +241,7 @@ fn main() {
     match start.elapsed() {
         Ok(elapsed) => {
             // it prints '2'
-            println!("{}", elapsed.as_secs());
+            println!("{}", elapsed.as_millis());
         }
         Err(e) => {
             // an error occurred!
