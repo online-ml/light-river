@@ -39,9 +39,9 @@ impl HST {
         // TODO: weighted sampling of features
 
         // #nodes = 2 ^ height - 1
-        let n_nodes: usize = usize::try_from(n_trees * u32::pow(2, height) - 1).unwrap();
+        let n_nodes: usize = usize::try_from(n_trees * (u32::pow(2, height) - 1)).unwrap();
         // #branches = 2 ^ (height - 1) - 1
-        let n_branches = usize::try_from(n_trees * u32::pow(2, height - 1) - 1).unwrap();
+        let n_branches = usize::try_from(n_trees * (u32::pow(2, height - 1) - 1)).unwrap();
 
         // Helper function to create and populate a Vec with a given capacity
         fn init_vec<T>(capacity: usize, default_value: T) -> Vec<T>
@@ -84,7 +84,7 @@ fn main() {
     let mut counter: u32 = 0;
     let size_limit = 0.1 * window_size as f32;
     let n_trees: u32 = 50;
-    let height: u32 = 6;
+    let height: u32 = 2;
     let features: Vec<String> = vec![
         String::from("V1"),
         String::from("V2"),
@@ -135,70 +135,22 @@ fn main() {
 
         // SCORE
         let mut score: f32 = 0.0;
-
         for tree in 0..n_trees {
-            let offset: u32 = tree * n_nodes;
             let mut node: u32 = 0;
             for depth in 0..height {
-                score += hst.r_mass[(offset + node) as usize] * u32::pow(2, depth) as f32;
-                // Stop if the node is a leaf or if the mass of the node is too small
-                if node >= n_nodes || (hst.r_mass[(offset + node) as usize] < size_limit) {
+                score += hst.r_mass[(tree * n_nodes + node) as usize] * u32::pow(2, depth) as f32;
+
+                // Stop if the node is a leaf or stop early if the mass of the node is too small
+                if (depth == height - 1)
+                    || hst.r_mass[(tree * n_nodes + node) as usize] < size_limit
+                {
                     break;
                 }
+
                 // Get the feature and threshold of the current node so that we can determine
                 // whether to go left or right
-                let feature = &hst.feature[(offset + node) as usize];
-                let threshold = hst.threshold[(offset + node) as usize];
-
-                // Get the value of the current feature
-                let value = match line.get_x().get(feature) {
-                    Some(Data::Scalar(value)) => Some(value),
-                    Some(Data::String(_)) => panic!("String feature not supported yet"),
-                    None => None,
-                };
-
-                node = match value {
-                    Some(value) => {
-                        // Update the mass of the current node
-                        if *value < threshold {
-                            left_child(node)
-                        } else {
-                            right_child(node)
-                        }
-                    }
-                    // If the feature is missing, go down both branches and select the node with the
-                    // the biggest l_mass
-                    None => {
-                        if hst.l_mass[(offset + left_child(node)) as usize]
-                            < hst.l_mass[(offset + right_child(node)) as usize]
-                        {
-                            right_child(node)
-                        } else {
-                            left_child(node)
-                        }
-                    }
-                }
-            }
-        }
-        // Output score to CSV
-        let _ = csv_writer.serialize(score);
-
-        // UPDATE
-        for tree in 0..n_trees {
-            // Walk over the tree
-            let offset: u32 = tree * n_nodes;
-            let mut node: u32 = 0;
-            for _ in 0..height {
-                // Update the l_mass
-                hst.l_mass[0 as usize] += 1.0;
-                // Stop if the node is a leaf
-                // if node >= n_branches {
-                //     break;
-                // }
-                // Get the feature and threshold of the current node so that we can determine
-                // whether to go left or right
-                let feature = &hst.feature[0 as usize];
-                let threshold = hst.threshold[0 as usize];
+                let feature = &hst.feature[(tree * n_branches + node) as usize];
+                let threshold = hst.threshold[(tree * n_branches + node) as usize];
 
                 // Get the value of the current feature
                 node = match line.get_x().get(feature) {
@@ -214,8 +166,54 @@ fn main() {
                     None => {
                         // If the feature is missing, go down both branches and select the node with the
                         // the biggest l_mass
-                        if hst.l_mass[(offset + left_child(node)) as usize]
-                            > hst.l_mass[(offset + right_child(node)) as usize]
+                        if hst.l_mass[(tree * n_nodes + left_child(node)) as usize]
+                            > hst.l_mass[(tree * n_nodes + right_child(node)) as usize]
+                        {
+                            left_child(node)
+                        } else {
+                            right_child(node)
+                        }
+                    }
+                };
+            }
+        }
+        // Output score to CSV
+        let _ = csv_writer.serialize(score);
+
+        // UPDATE
+        for tree in 0..n_trees {
+            // Walk over the tree
+            let mut node: u32 = 0;
+            for depth in 0..height {
+                // Update the l_mass
+                hst.l_mass[(tree * n_nodes + node) as usize] += 1.0;
+
+                // Stop if the node is a leaf
+                if depth == height - 1 {
+                    break;
+                }
+
+                // Get the feature and threshold of the current node so that we can determine
+                // whether to go left or right
+                let feature = &hst.feature[(tree * n_branches + node) as usize];
+                let threshold = hst.threshold[(tree * n_branches + node) as usize];
+
+                // Get the value of the current feature
+                node = match line.get_x().get(feature) {
+                    Some(Data::Scalar(value)) => {
+                        // Update the mass of the current node
+                        if *value < threshold {
+                            left_child(node)
+                        } else {
+                            right_child(node)
+                        }
+                    }
+                    Some(Data::String(_)) => panic!("String feature not supported yet"),
+                    None => {
+                        // If the feature is missing, go down both branches and select the node with the
+                        // the biggest l_mass
+                        if hst.l_mass[(tree * n_nodes + left_child(node)) as usize]
+                            > hst.l_mass[(tree * n_nodes + right_child(node)) as usize]
                         {
                             left_child(node)
                         } else {
@@ -233,10 +231,6 @@ fn main() {
             hst.l_mass.fill(0.0);
             counter = 0;
         }
-
-        // if i == 1000 {
-        //     break;
-        // }
     }
 
     let _ = csv_writer.flush();
