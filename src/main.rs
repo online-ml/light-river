@@ -181,7 +181,7 @@ fn main() {
             }
         }
         // Output score to CSV
-        csv_writer.serialize(score);
+        let _ = csv_writer.serialize(score);
 
         // UPDATE
         for tree in trees.iter_mut() {
@@ -233,12 +233,16 @@ fn main() {
         // Pivot if the window is full
         counter += 1;
         if counter == window_size {
-            for tree in trees.iter_mut() {
-                for node in 0..tree.l_mass.len() {
-                    tree.r_mass[node] = tree.l_mass[node];
-                    tree.l_mass[node] = 0.0;
-                }
-            }
+            // for tree in trees.iter_mut() {
+            //     for node in 0..tree.l_mass.len() {
+            //         tree.r_mass[node] = tree.l_mass[node];
+            //         tree.l_mass[node] = 0.0;
+            //     }
+            // }
+            trees.iter_mut().for_each(|tree| {
+                tree.r_mass.copy_from_slice(&tree.l_mass);
+                tree.l_mass.iter_mut().for_each(|mass| *mass = 0.0);
+            });
             counter = 0;
         }
 
