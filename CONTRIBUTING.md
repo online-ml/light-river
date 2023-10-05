@@ -20,4 +20,4 @@ ROC AUC appears roughly similar between the Python and Rust implementations. Not
 - We fixed some algorithmic issues. We now reach **~2 seconds** by shear luck.
 - We tried using rayon to parallelize over trees, but it didn't bring any improvements.
 - We removed the CSV logic from the benchmark, which brings us under **~1 second**.
-- There is an opportunity to do the scoring and update logic in one fell swoop. This is because of the nature of online anomaly detection. This would bring us to **~0.5 seconds**. We are not sure if this is a good idea, so we don't keep it for now.
+- There is an opportunity to do the scoring and update logic in one fell swoop. This is because of the nature of online anomaly detection. This would bring us to **~0.6 seconds**. We are not sure if this is a good design choice though, so we may revisit this later.

@@ -137,60 +137,17 @@ fn main() {
 
     let start = SystemTime::now();
     for line in dataset.iter() {
-        // SCORE
         let mut score: f32 = 0.0;
         for tree in 0..n_trees {
             let mut node: u32 = 0;
             for depth in 0..height {
+                // Update the score
                 score += hst.r_mass[(tree * n_nodes + node) as usize] * u32::pow(2, depth) as f32;
 
-                // Stop if the node is a leaf or stop early if the mass of the node is too small
-                if (depth == height - 1)
-                    || hst.r_mass[(tree * n_nodes + node) as usize] < size_limit
-                {
-                    break;
-                }
-
-                // Get the feature and threshold of the current node so that we can determine
-                // whether to go left or right
-                let feature = &hst.feature[(tree * n_branches + node) as usize];
-                let threshold = hst.threshold[(tree * n_branches + node) as usize];
-
-                // Get the value of the current feature
-                node = match line.get_x().get(feature) {
-                    Some(Data::Scalar(value)) => {
-                        // Update the mass of the current node
-                        if *value < threshold {
-                            left_child(node)
-                        } else {
-                            right_child(node)
-                        }
-                    }
-                    Some(Data::String(_)) => panic!("String feature not supported yet"),
-                    None => {
-                        // If the feature is missing, go down both branches and select the node with the
-                        // the biggest l_mass
-                        if hst.l_mass[(tree * n_nodes + left_child(node)) as usize]
-                            > hst.l_mass[(tree * n_nodes + right_child(node)) as usize]
-                        {
-                            left_child(node)
-                        } else {
-                            right_child(node)
-                        }
-                    }
-                };
-            }
-        }
-
-        // UPDATE
-        for tree in 0..n_trees {
-            // Walk over the tree
-            let mut node: u32 = 0;
-            for depth in 0..height {
                 // Update the l_mass
                 hst.l_mass[(tree * n_nodes + node) as usize] += 1.0;
 
-                // Stop if the node is a leaf
+                // Stop if the node is a leaf or stop early if the mass of the node is too small
                 if depth == height - 1 {
                     break;
                 }
