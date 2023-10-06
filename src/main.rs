@@ -82,7 +82,7 @@ fn main() {
 
     // PARAMETERS
 
-    let window_size: u32 = 1000;
+    let window_size: u32 = 1_000;
     let mut counter: u32 = 0;
     let n_trees: u32 = 50;
     let height: u32 = 6;
@@ -142,7 +142,8 @@ fn main() {
             let mut node: u32 = 0;
             for depth in 0..height {
                 // Update the score
-                score += hst.r_mass[(tree * n_nodes + node) as usize] * u32::pow(2, depth) as f32;
+                score +=
+                    hst.r_mass[(tree * n_nodes + node) as usize] * f32::powf(2.0, depth as f32);
 
                 // Update the l_mass
                 hst.l_mass[(tree * n_nodes + node) as usize] += 1.0;

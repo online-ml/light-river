@@ -17,6 +17,7 @@ ROC AUC appears roughly similar between the Python and Rust implementations. Not
 - Using `with_capacity` on each `Vec` in `HST`, as well as the list of HSTs, we gain 1 second. We are now at **~5 seconds**.
 - We can't find a nice profiler. So for now we comment code and measure time.
 - Storing all attributes in a single array, instead of one array per tree, makes us reach **~3 seconds**.
-- We tried using rayon to parallelize over trees, but it didn't bring any improvements.
 - We removed the CSV logic from the benchmark, which brings us under **~2.5 second**.
-- There is an opportunity to do the scoring and update logic in one fell swoop. This is because of the nature of online anomaly detection. This would bring us to **~0.7 seconds**. We are not sure if this is a good design choice though, so we may revisit this later.
+- Fixing some algorithmic issues actually brings us to **~5 seconds** :(
+- We tried using rayon to parallelize over trees, but it didn't bring any improvement whatsoever. Maybe we used it wrong, but we believe its because our loop is too cheap to be worth the overhead of spawning threads -- or whatever it is rayon does.
+- There is an opportunity to do the scoring and update logic in one fell swoop. This is because of the nature of online anomaly detection. This would bring us to **~2.5 seconds**. We are not sure if this is a good design choice though, so we may revisit this later.
