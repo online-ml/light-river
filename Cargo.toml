@@ -15,8 +15,15 @@ zip = "0.6.4"
 rand = "0.8.5"
 time = "0.3.29"
 
+[dev-dependencies]
+criterion = { version = "0.4", features = ["html_reports"] }
+
 [profile.dev]
 opt-level = 0
 
 [profile.release]
 opt-level = 3
+
+[[bench]]
+name = "credit_card"
+harness = false

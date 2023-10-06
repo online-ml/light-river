@@ -1,4 +1,12 @@
-## 2023-10-04
+## Benchmarking
+
+```sh
+cargo bench --bench credit_card
+```
+
+## Changelog
+
+### 2023-10-04
 
 We test with:
 
@@ -12,7 +20,7 @@ We coded a first array based implementation in Rust. It runs in **~6 seconds**. 
 
 ROC AUC appears roughly similar between the Python and Rust implementations. Note that we didn't activate min-max scaling in both cases.
 
-## 2023-10-05
+### 2023-10-05
 
 - Using `with_capacity` on each `Vec` in `HST`, as well as the list of HSTs, we gain 1 second. We are now at **~5 seconds**.
 - We can't find a nice profiler. So for now we comment code and measure time.

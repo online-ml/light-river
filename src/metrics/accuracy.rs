@@ -9,12 +9,12 @@ struct Accuracy<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + D
     n_correct: F,
 }
 impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> Accuracy<F> {
-    // pub fn new() -> Self {
-    //     Self {
-    //         n_samples: F::zero(),
-    //         n_correct: F::zero(),
-    //     }
-    // }
+    pub fn new() -> Self {
+        Self {
+            n_samples: F::zero(),
+            n_correct: F::zero(),
+        }
+    }
 }
 
 // implement for trait ClassificationMetric
