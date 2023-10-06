@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use crate::common::Observation;
 use num::Float;
 
 /// This enum allows you to choose whether to define a single target (Name) or multiple targets (MultipleNames).
@@ -64,5 +65,17 @@ impl<F: Float + std::str::FromStr> DataStream<F> {
             DataStream::X(_) => Err("No y data"),
             DataStream::XY(_, y) => Ok(y),
         }
+    }
+    pub fn get_observation(&self) -> Observation<F> {
+        let observation = self.get_x();
+        // Get only the value that are scalar
+        let observation: HashMap<String, F> = observation
+            .iter()
+            .filter_map(|(k, v)| match v {
+                Data::Scalar(v) => Some((k.clone(), *v)),
+                _ => None,
+            })
+            .collect();
+        observation
     }
 }
