@@ -22,7 +22,7 @@
 [![Discord](https://dcbadge.vercel.app/api/server/qNmrKEZMAn)](https://discord.gg/qNmrKEZMAn)
 
 <div align="center" >
-  <img src="https://user-images.githubusercontent.com/8095957/202878607-9fa71045-6379-436e-9da9-41209f8b39c2.png" width="25%" align="right" />
+  <img src="https://github.com/online-ml/light-river/assets/8095957/fc8ea218-62f9-4643-b25d-f9265ef962f8" width="25%" align="right" />
 </div>
 
 LightRiver is an online machine learning library written in Rust. It is meant to be used in high-throughput environments, as well as TinyML systems.
