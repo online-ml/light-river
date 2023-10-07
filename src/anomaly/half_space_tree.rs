@@ -8,11 +8,13 @@ use std::mem;
 use crate::common::Observation;
 
 // Return the index of a node's left child node.
+#[inline]
 fn left_child(node: u32) -> u32 {
     node * 2 + 1
 }
 
 // Return the index of a node's right child node.
+#[inline]
 fn right_child(node: u32) -> u32 {
     node * 2 + 2
 }

@@ -24,6 +24,6 @@ opt-level = 0
 [profile.release]
 opt-level = 3
 
-[[bench]]
+[[example]]
 name = "credit_card"
-harness = false
+path = "examples/anomaly_detection/credit_card.rs"
