@@ -2,8 +2,10 @@
 
 use rand::prelude::*;
 
+use num::{Float, FromPrimitive};
 use std::convert::TryFrom;
 use std::mem;
+use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
 use crate::common::Observation;
 
@@ -20,14 +22,14 @@ fn right_child(node: u32) -> u32 {
 }
 
 #[derive(Clone)]
-struct Trees {
+struct Trees<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> {
     feature: Vec<String>,
-    threshold: Vec<f32>,
-    l_mass: Vec<f32>,
-    r_mass: Vec<f32>,
+    threshold: Vec<F>,
+    l_mass: Vec<F>,
+    r_mass: Vec<F>,
 }
 
-impl Trees {
+impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> Trees<F> {
     fn new(n_trees: u32, height: u32, features: &Vec<String>, rng: &mut ThreadRng) -> Self {
         // #nodes = 2 ^ height - 1
         let n_nodes: usize = usize::try_from(n_trees * (u32::pow(2, height) - 1)).unwrap();
@@ -47,21 +49,22 @@ impl Trees {
         // Allocate memory for the HST
         let mut hst = Trees {
             feature: init_vec(n_branches, String::from("")),
-            threshold: init_vec(n_branches, 0.0),
-            l_mass: init_vec(n_nodes, 0.0),
-            r_mass: init_vec(n_nodes, 0.0),
+            threshold: init_vec(n_branches, F::zero()),
+            l_mass: init_vec(n_nodes, F::zero()),
+            r_mass: init_vec(n_nodes, F::zero()),
         };
 
         // Randomly assign features and thresholds to each branch
         for branch in 0..n_branches {
             let feature = features.choose(rng).unwrap();
             hst.feature[branch] = feature.clone();
-            hst.threshold[branch] = rng.gen(); // [0, 1]
+            let random_threshold: f64 = rng.gen();
+            hst.threshold[branch] = F::from_f64(random_threshold).unwrap(); // [0, 1]
         }
         hst
     }
 }
-pub struct HalfSpaceTree {
+pub struct HalfSpaceTree<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> {
     window_size: u32,
     counter: u32,
     n_trees: u32,
@@ -70,10 +73,10 @@ pub struct HalfSpaceTree {
     rng: ThreadRng,
     n_branches: u32,
     n_nodes: u32,
-    trees: Option<Trees>,
+    trees: Option<Trees<F>>,
     first_learn: bool,
 }
-impl HalfSpaceTree {
+impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> HalfSpaceTree<F> {
     pub fn new(
         window_size: u32,
         n_trees: u32,
@@ -108,10 +111,10 @@ impl HalfSpaceTree {
 
     pub fn update(
         &mut self,
-        observation: &Observation<f32>,
+        observation: &Observation<F>,
         do_score: bool,
         do_update: bool,
-    ) -> Option<f32> {
+    ) -> Option<F> {
         // build trees during the first pass
         if (!self.first_learn) && self.features.is_none() {
             self.features = Some(observation.clone().into_keys().collect());
@@ -124,7 +127,7 @@ impl HalfSpaceTree {
             self.first_learn = true;
         }
 
-        let mut score: f32 = 0.0;
+        let mut score: F = F::zero();
 
         for tree in 0..self.n_trees {
             let mut node: u32 = 0;
@@ -135,12 +138,12 @@ impl HalfSpaceTree {
                 // Flag for scoring
                 if do_score {
                     score += hst.r_mass[(tree * self.n_nodes + node) as usize]
-                        * u32::pow(2, depth) as f32;
+                        * F::from_u32(u32::pow(2, depth)).unwrap();
                 }
 
                 if do_update {
                     // Update the l_mass
-                    hst.l_mass[(tree * self.n_nodes + node) as usize] += 1.0;
+                    hst.l_mass[(tree * self.n_nodes + node) as usize] += F::one();
                 }
 
                 // Stop if the node is a leaf or stop early if the mass of the node is too small
@@ -184,7 +187,7 @@ impl HalfSpaceTree {
             self.counter += 1;
             if self.counter == self.window_size {
                 mem::swap(&mut hst.r_mass, &mut hst.l_mass);
-                hst.l_mass.fill(0.0);
+                hst.l_mass.fill(F::zero());
                 self.counter = 0;
             }
         }
@@ -193,10 +196,10 @@ impl HalfSpaceTree {
         }
         return None;
     }
-    pub fn learn_one(&mut self, observation: &Observation<f32>) {
+    pub fn learn_one(&mut self, observation: &Observation<F>) {
         self.update(observation, false, true);
     }
-    pub fn score_one(&mut self, observation: &Observation<f32>) -> Option<f32> {
+    pub fn score_one(&mut self, observation: &Observation<F>) -> Option<F> {
         self.update(observation, true, false)
     }
 }
