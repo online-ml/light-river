@@ -1,5 +1,7 @@
 use light_river::anomaly::half_space_tree::HalfSpaceTree;
 use light_river::datasets::credit_card::CreditCard;
+use light_river::stream::iter_csv::IterCsv;
+use std::fs::File;
 use std::time::Instant;
 
 fn main() {
@@ -11,10 +13,10 @@ fn main() {
     let height: u32 = 6;
 
     // INITIALIZATION
-    let mut hst = HalfSpaceTree::new(window_size, n_trees, height, None);
+    let mut hst: HalfSpaceTree<f32> = HalfSpaceTree::new(window_size, n_trees, height, None);
 
     // LOOP
-    let transactions = CreditCard::load_credit_card_transactions().unwrap();
+    let transactions: IterCsv<f32, File> = CreditCard::load_credit_card_transactions().unwrap();
     for transaction in transactions {
         let observation = transaction.unwrap().get_observation();
         let _ = hst.update(&observation, true, true);
