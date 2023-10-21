@@ -192,6 +192,7 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> H
             }
         }
         if do_score {
+            score = F::one() - (score / self.max_score());
             return Some(score);
         }
         return None;
@@ -201,5 +202,10 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> H
     }
     pub fn score_one(&mut self, observation: &Observation<F>) -> Option<F> {
         self.update(observation, true, false)
+    }
+    fn max_score(&self) -> F {
+        F::from(self.n_trees).unwrap()
+            * F::from(self.window_size).unwrap()
+            * (F::from(2.).unwrap().powi(self.height as i32 + 1) - F::one())
     }
 }
