@@ -3,11 +3,12 @@
 use rand::prelude::*;
 
 use num::{Float, FromPrimitive};
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::mem;
 use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
-use crate::common::Observation;
+use crate::common::{ClassifierOutput, ClassifierTarget, Observation};
 
 // Return the index of a node's left child node.
 #[inline]
@@ -64,6 +65,25 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> T
         hst
     }
 }
+/// Half-space trees are an online variant of isolation forests.
+/// They work well when anomalies are spread out.
+/// However, they do not work well if anomalies are packed together in windows.
+/// By default, this implementation assumes that each feature has values that are comprised
+/// between 0 and 1.
+/// # Parameters
+///
+/// - `window_size`: The number of observations to consider when computing the score.
+/// - `n_trees`: The number of trees to use.
+/// - `height`: The height of each tree.
+/// - `features`: The list of features to use. If `None`, the features will be inferred from the first observation.
+///
+/// # Example
+///
+/// ```
+///
+///
+///
+/// ```
 pub struct HalfSpaceTree<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> {
     window_size: u32,
     counter: u32,
@@ -114,7 +134,7 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> H
         observation: &Observation<F>,
         do_score: bool,
         do_update: bool,
-    ) -> Option<F> {
+    ) -> Option<ClassifierOutput<F>> {
         // build trees during the first pass
         if (!self.first_learn) && self.features.is_none() {
             self.features = Some(observation.clone().into_keys().collect());
@@ -193,14 +213,18 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> H
         }
         if do_score {
             score = F::one() - (score / self.max_score());
-            return Some(score);
+            return Some(ClassifierOutput::Probabilities(HashMap::from([(
+                ClassifierTarget::from(true),
+                score,
+            )])));
+            // return Some(score);
         }
         return None;
     }
     pub fn learn_one(&mut self, observation: &Observation<F>) {
         self.update(observation, false, true);
     }
-    pub fn score_one(&mut self, observation: &Observation<F>) -> Option<F> {
+    pub fn score_one(&mut self, observation: &Observation<F>) -> Option<ClassifierOutput<F>> {
         self.update(observation, true, false)
     }
     fn max_score(&self) -> F {
@@ -208,4 +232,11 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> H
             * F::from(self.window_size).unwrap()
             * (F::from(2.).unwrap().powi(self.height as i32 + 1) - F::one())
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_hst() {}
 }
