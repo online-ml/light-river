@@ -63,7 +63,7 @@ pub struct ConfusionMatrix<F: Float + FromPrimitive + AddAssign + SubAssign + Mu
     data: HashMap<ClassifierTarget, HashMap<ClassifierTarget, F>>,
     sum_row: HashMap<ClassifierTarget, F>,
     sum_col: HashMap<ClassifierTarget, F>,
-    total_weight: F,
+    pub total_weight: F,
 }
 
 impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> ConfusionMatrix<F> {
@@ -133,10 +133,10 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> C
         &mut self,
         y_pred: &ClassifierOutput<F>,
         y_true: &ClassifierTarget,
-        sample_weight: F,
+        sample_weight: Option<F>,
     ) {
-        self.n_samples -= sample_weight;
-        self._update(y_pred, y_true, -sample_weight);
+        self.n_samples -= sample_weight.unwrap_or(F::one());
+        self._update(y_pred, y_true, -sample_weight.unwrap_or(F::one()));
     }
     pub fn get(&self, label: &ClassifierTarget) -> HashMap<ClassifierTarget, F> {
         // return rows of the label in the confusion matrix
