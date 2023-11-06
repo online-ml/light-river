@@ -25,7 +25,7 @@
   <img src="https://github.com/online-ml/light-river/assets/8095957/fc8ea218-62f9-4643-b25d-f9265ef962f8" width="25%" align="right" />
 </div>
 
-Reed is an online machine learning library written in Rust. It is meant to be used in high-throughput environments, as well as TinyML systems.
+LightRiver is an online machine learning library written in Rust. It is meant to be used in high-throughput environments, as well as TinyML systems.
 
 This library is complementary to [River](https://github.com/online-ml/river/). The latter provides a wide array of online methods, but is not ideal when it comes to performance. The idea is to take the algorithms that work best in River, and implement them in a way that is more performant. As such, LightRiver is not meant to be a general purpose library. It is meant to be a fast online machine learning library that provides a few algorithms that are known to work well in online settings. This is a akin to the way [scikit-learn](https://scikit-learn.org/) and [LightGBM](https://lightgbm.readthedocs.io/en/stable/) are complementary to each other.
 

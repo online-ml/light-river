@@ -200,3 +200,20 @@ impl HalfSpaceTree {
         self.update(observation, true, false)
     }
 }
+
+mod tests {
+    use super::*;
+    #[test]
+    fn test_left_child() {
+        let node = 42;
+        let child = left_child(node);
+        assert_eq!(child, 85);
+    }
+
+    #[test]
+    fn test_right_child() {
+        let node = 42;
+        let child = right_child(node);
+        assert_eq!(child, 86);
+    }
+}

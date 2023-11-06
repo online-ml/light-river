@@ -16,7 +16,7 @@ rand = "0.8.5"
 time = "0.3.29"
 
 [dev-dependencies]
-criterion = { version = "0.4", features = ["html_reports"] }
+criterion = { version = "0.5", features = ["html_reports"] }
 
 [profile.dev]
 opt-level = 0
@@ -27,3 +27,7 @@ opt-level = 3
 [[example]]
 name = "credit_card"
 path = "examples/anomaly_detection/credit_card.rs"
+
+[[bench]]
+name = "hst"
+harness = false
