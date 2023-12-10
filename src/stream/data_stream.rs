@@ -71,7 +71,15 @@ pub enum DataStream<F: Float + std::str::FromStr> {
     X(HashMap<String, Data<F>>),
     XY(HashMap<String, Data<F>>, HashMap<String, Data<F>>),
 }
+
 impl<F: Float + std::str::FromStr + std::fmt::Display> DataStream<F> {
+    pub fn get_x(&self) -> &HashMap<String, Data<F>> {
+        match self {
+            DataStream::X(x) => x,
+            DataStream::XY(x, _) => x,
+        }
+    }
+
     pub fn to_classifier_target(&self, target_key: &str) -> Result<ClassifierTarget, &str> {
         match self {
             DataStream::X(_) => Err("No y data"),
@@ -80,15 +88,6 @@ impl<F: Float + std::str::FromStr + std::fmt::Display> DataStream<F> {
                 let y = y.get(target_key).unwrap();
                 Ok(ClassifierTarget::from(y.to_string()))
             }
-        }
-    }
-}
-
-impl<F: Float + std::str::FromStr + std::fmt::Display> DataStream<F> {
-    pub fn get_x(&self) -> &HashMap<String, Data<F>> {
-        match self {
-            DataStream::X(x) => x,
-            DataStream::XY(x, _) => x,
         }
     }
 

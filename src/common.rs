@@ -202,6 +202,7 @@ pub type ClassifierTargetProbabilities<F> = HashMap<ClassifierTarget, F>;
 /// });
 /// let mut prediction = probs.get_predicition();
 /// assert_eq!(prediction, ClassifierTarget::String("Cat".to_string()));
+#[derive(Debug)]
 pub enum ClassifierOutput<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign>
 {
     Probabilities(ClassifierTargetProbabilities<F>),
