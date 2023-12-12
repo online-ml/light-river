@@ -23,8 +23,8 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign>
 {
     fn update(
         &mut self,
-        y_true: &ClassifierOutput<F>,
-        y_pred: &ClassifierTarget,
+        y_true: &ClassifierTarget,
+        y_pred: &ClassifierOutput<F>,
         sample_weight: Option<F>,
     ) {
         let sample_weight = sample_weight.unwrap_or_else(|| F::one());
@@ -46,8 +46,8 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign>
     }
     fn revert(
         &mut self,
-        y_true: &ClassifierOutput<F>,
-        y_pred: &ClassifierTarget,
+        y_true: &ClassifierTarget,
+        y_pred: &ClassifierOutput<F>,
         sample_weight: Option<F>,
     ) {
         let sample_weight = sample_weight.unwrap_or_else(|| F::one());

@@ -97,8 +97,8 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign>
 {
     fn update(
         &mut self,
-        y_pred: &ClassifierOutput<F>,
         y_true: &ClassifierTarget,
+        y_pred: &ClassifierOutput<F>,
         sample_weight: Option<F>,
     ) {
         // Get the probability of the positive class
@@ -118,8 +118,8 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign>
 
     fn revert(
         &mut self,
-        y_pred: &ClassifierOutput<F>,
         y_true: &ClassifierTarget,
+        y_pred: &ClassifierOutput<F>,
         sample_weight: Option<F>,
     ) {
         let p_pred = y_pred.get_probabilities();
@@ -143,7 +143,6 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign>
             let true_negatives: F = cm.true_negatives(&self.pos_val);
             let false_positives: F = cm.false_positives(&self.pos_val);
             let false_negatives: F = cm.false_negatives(&self.pos_val);
-
             // Handle the case of zero division
             let mut tpr: Option<F> = None;
             if true_positives + false_negatives != F::zero() {
@@ -186,12 +185,18 @@ mod tests {
             ClassifierOutput::Prediction(ClassifierTarget::from("bird")),
             ClassifierOutput::Prediction(ClassifierTarget::from("cat")),
         ];
-        let y_true: Vec<&str> = vec!["cat", "cat", "dog", "cat"];
-
-        let mut metric = ROCAUC::new(Some(10), ClassifierTarget::from("cat"));
+        let y_true: Vec<ClassifierTarget> = vec![
+            ClassifierTarget::from("cat".to_string()),
+            ClassifierTarget::from("cat".to_string()),
+            ClassifierTarget::from("dog".to_string()),
+            ClassifierTarget::from("cat".to_string()),
+        ];
+        let pos_val = ClassifierTarget::from("cat");
+        let mut metric: ROCAUC<f32> = ROCAUC::new(Some(10), pos_val);
 
         for (yt, yp) in y_true.iter().zip(y_pred.iter()) {
-            metric.update(yp, &ClassifierTarget::from(*yt), Some(1.0));
+            metric.update(&yt, yp, Some(1.0));
+            println!("{}", metric.get());
         }
         println!("{}", metric.get());
     }
@@ -219,7 +224,7 @@ mod tests {
         let mut metric: ROCAUC<f64> = ROCAUC::new(Some(10), ClassifierTarget::from(true));
 
         for (yt, yp) in y_true.iter().zip(y_pred.iter()) {
-            metric.update(yp, &ClassifierTarget::from(*yt), Some(1.0));
+            metric.update(&ClassifierTarget::from(*yt), yp, Some(1.0));
         }
 
         println!("ROCAUC: {:.2}%", metric.get() * (100.0 as f64));

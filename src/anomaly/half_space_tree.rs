@@ -95,6 +95,7 @@ pub struct HalfSpaceTree<F: Float + FromPrimitive + AddAssign + SubAssign + MulA
     n_nodes: u32,
     trees: Option<Trees<F>>,
     first_learn: bool,
+    pos_val: Option<ClassifierTarget>,
 }
 impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> HalfSpaceTree<F> {
     pub fn new(
@@ -102,6 +103,7 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> H
         n_trees: u32,
         height: u32,
         features: Option<Vec<String>>,
+        pos_val: Option<ClassifierTarget>,
         // rng: ThreadRng,
     ) -> Self {
         // let mut rng = rand::thread_rng();
@@ -126,6 +128,7 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> H
             n_nodes: n_nodes,
             trees: trees,
             first_learn: false,
+            pos_val: pos_val,
         }
     }
 
@@ -213,8 +216,11 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> H
         }
         if do_score {
             score = F::one() - (score / self.max_score());
+
             return Some(ClassifierOutput::Probabilities(HashMap::from([(
-                ClassifierTarget::from(true),
+                ClassifierTarget::from(
+                    self.pos_val.clone().unwrap_or(ClassifierTarget::from(true)),
+                ),
                 score,
             )])));
             // return Some(score);
@@ -237,8 +243,35 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> H
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use crate::datasets::credit_card::CreditCard;
+    use crate::stream::iter_csv::IterCsv;
+    use std::fs::File;
     #[test]
-    fn test_hst() {}
+    fn test_hst() {
+        // PARAMETERS
+        let window_size: u32 = 1000;
+        let n_trees: u32 = 50;
+        let height: u32 = 6;
+
+        // INITIALIZATION
+        let mut hst: HalfSpaceTree<f32> = HalfSpaceTree::new(
+            window_size,
+            n_trees,
+            height,
+            None,
+            Some(ClassifierTarget::from("1".to_string())),
+        );
+
+        // LOOP
+        let transactions: IterCsv<f32, File> = CreditCard::load_credit_card_transactions().unwrap();
+        for transaction in transactions {
+            let data = transaction.unwrap();
+            let observation = data.get_observation();
+            let label = data.get_y().unwrap().get("Class").unwrap();
+            let _ = hst.update(&observation, true, true);
+        }
+    }
 }
 
 mod tests {
