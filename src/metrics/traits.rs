@@ -9,14 +9,14 @@ pub trait ClassificationMetric<
 {
     fn update(
         &mut self,
-        y_true: &ClassifierOutput<F>,
-        y_pred: &ClassifierTarget,
+        y_true: &ClassifierTarget,
+        y_pred: &ClassifierOutput<F>,
         sample_weight: Option<F>,
     );
     fn revert(
         &mut self,
-        y_true: &ClassifierOutput<F>,
-        y_pred: &ClassifierTarget,
+        y_true: &ClassifierTarget,
+        y_pred: &ClassifierOutput<F>,
         sample_weight: Option<F>,
     );
     fn get(&self) -> F;

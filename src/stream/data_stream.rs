@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use crate::common::{ClassifierTarget, Observation};
 use num::Float;
 
 /// This enum allows you to choose whether to define a single target (Name) or multiple targets (MultipleNames).
@@ -42,16 +43,36 @@ impl Target {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Data<F: Float + std::str::FromStr> {
     Scalar(F),
+    Int(i32),
+    Bool(bool),
     String(String),
 }
+impl<F: Float + std::fmt::Display + std::str::FromStr> Data<F> {
+    pub fn to_float(&self) -> Result<F, &str> {
+        match self {
+            Data::Scalar(v) => Ok(*v),
+            Data::Int(v) => Ok(F::from(*v).unwrap()),
+            Data::Bool(v) => Ok(F::from(*v as i32).unwrap()),
+            Data::String(_) => Err("Cannot convert string to float"),
+        }
+    }
 
-/// "This enum defines whether your DataSteam only contains observations (X) or both observations and one or more targets (XY)
+    pub fn to_string(&self) -> String {
+        match self {
+            Data::Scalar(v) => v.to_string(),
+            Data::Int(v) => v.to_string(),
+            Data::Bool(v) => v.to_string(),
+            Data::String(v) => v.clone(),
+        }
+    }
+}
+
 pub enum DataStream<F: Float + std::str::FromStr> {
     X(HashMap<String, Data<F>>),
     XY(HashMap<String, Data<F>>, HashMap<String, Data<F>>),
 }
 
-impl<F: Float + std::str::FromStr> DataStream<F> {
+impl<F: Float + std::str::FromStr + std::fmt::Display> DataStream<F> {
     pub fn get_x(&self) -> &HashMap<String, Data<F>> {
         match self {
             DataStream::X(x) => x,
@@ -59,10 +80,33 @@ impl<F: Float + std::str::FromStr> DataStream<F> {
         }
     }
 
+    pub fn to_classifier_target(&self, target_key: &str) -> Result<ClassifierTarget, &str> {
+        match self {
+            DataStream::X(_) => Err("No y data"),
+            // Use data to float
+            DataStream::XY(_, y) => {
+                let y = y.get(target_key).unwrap();
+                Ok(ClassifierTarget::from(y.to_string()))
+            }
+        }
+    }
+
     pub fn get_y(&self) -> Result<&HashMap<String, Data<F>>, &str> {
         match self {
             DataStream::X(_) => Err("No y data"),
             DataStream::XY(_, y) => Ok(y),
+        }
+    }
+    pub fn get_observation(&self) -> Observation<F> {
+        match self {
+            DataStream::X(x) | DataStream::XY(x, _) => {
+                x.iter()
+                    .filter_map(|(k, v)| match v.to_float() {
+                        Ok(f_value) => Some((k.clone(), f_value)),
+                        Err(_) => None, // Ignore non-convertible data types
+                    })
+                    .collect()
+            }
         }
     }
 }

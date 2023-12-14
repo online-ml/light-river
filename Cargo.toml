@@ -6,7 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-
 csv = "1.2.0"
 num = "0.4.0"
 tempfile = "3.4.0"
@@ -14,3 +13,22 @@ maplit = "1.0.2"
 reqwest = { version = "0.11.4", features = ["blocking"] }
 zip = "0.6.4"
 rand = "0.8.5"
+time = "0.3.29"
+half = "2.3.1"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+opt-level = 3
+
+[[example]]
+name = "credit_card"
+path = "examples/anomaly_detection/credit_card.rs"
+
+[[bench]]
+name = "hst"
+harness = false

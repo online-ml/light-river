@@ -22,16 +22,16 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign>
 {
     fn update(
         &mut self,
-        y_true: &ClassifierOutput<F>,
-        y_pred: &ClassifierTarget,
+        y_true: &ClassifierTarget,
+        y_pred: &ClassifierOutput<F>,
         sample_weight: Option<F>,
     ) {
         self.cm.update(y_true, y_pred, sample_weight);
     }
     fn revert(
         &mut self,
-        y_true: &ClassifierOutput<F>,
-        y_pred: &ClassifierTarget,
+        y_true: &ClassifierTarget,
+        y_pred: &ClassifierOutput<F>,
         sample_weight: Option<F>,
     ) {
         self.cm.revert(y_true, y_pred, sample_weight);
