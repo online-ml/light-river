@@ -21,8 +21,9 @@ use num::{Float, FromPrimitive};
 /// # Examples
 ///
 /// ```rust
-/// use light_river::metrics::ROCAUC;
+/// use light_river::metrics::rocauc::ROCAUC;
 /// use light_river::common::{ClassifierTarget, ClassifierOutput};
+/// use light_river::metrics::traits::ClassificationMetric;
 /// use std::collections::HashMap;
 ///
 /// let y_pred = vec![
@@ -45,7 +46,7 @@ use num::{Float, FromPrimitive};
 /// let mut metric = ROCAUC::new(Some(10), ClassifierTarget::from(true));
 ///
 /// for (yt, yp) in y_true.iter().zip(y_pred.iter()) {
-///     metric.update(yp, &ClassifierTarget::from(*yt), Some(1.0));
+///     metric.update(&ClassifierTarget::from(*yt), yp, Some(1.0));
 /// }
 ///
 /// println!("ROCAUC: {:.2}%", metric.get() * 100.0);
@@ -56,7 +57,7 @@ use num::{Float, FromPrimitive};
 /// The true ROC AUC might differ from the approximation. The accuracy can be improved by increasing the number
 /// of thresholds, but this comes at the cost of more computation time and memory usage.
 ///
-struct ROCAUC<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> {
+pub struct ROCAUC<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> {
     n_threshold: Option<usize>,
     pos_val: ClassifierTarget,
     thresholds: Vec<F>,
@@ -95,8 +96,8 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign>
 {
     fn update(
         &mut self,
-        y_pred: &ClassifierOutput<F>,
         y_true: &ClassifierTarget,
+        y_pred: &ClassifierOutput<F>,
         sample_weight: Option<F>,
     ) {
         // Get the probability of the positive class
@@ -116,8 +117,8 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign>
 
     fn revert(
         &mut self,
-        y_pred: &ClassifierOutput<F>,
         y_true: &ClassifierTarget,
+        y_pred: &ClassifierOutput<F>,
         sample_weight: Option<F>,
     ) {
         let p_pred = y_pred.get_probabilities();
@@ -141,8 +142,14 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign>
             let true_negatives: F = cm.true_negatives(&self.pos_val);
             let false_positives: F = cm.false_positives(&self.pos_val);
             let false_negatives: F = cm.false_negatives(&self.pos_val);
-
-            // Handle the case of zero division
+            // println!(
+            //     "tp: {}, tn: {}, fp: {}, fn: {}",
+            //     true_positives.to_f64().unwrap_or(0.0),
+            //     true_negatives.to_f64().unwrap_or(0.0),
+            //     false_positives.to_f64().unwrap_or(0.0),
+            //     false_negatives.to_f64().unwrap_or(0.0)
+            // );
+            // Handle the ;case of zero division
             let mut tpr: Option<F> = None;
             if true_positives + false_negatives != F::zero() {
                 tpr = Some(true_positives.div(true_positives + false_negatives));
@@ -174,9 +181,12 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign>
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::*;
     #[test]
     fn test_rocauc() {
+        println!("ROCAUC");
         // same example as in the doctest
         let y_pred = vec![
             ClassifierOutput::Prediction(ClassifierTarget::from("cat")),
@@ -189,7 +199,35 @@ mod tests {
         let mut metric = ROCAUC::new(Some(10), ClassifierTarget::from("cat"));
 
         for (yt, yp) in y_true.iter().zip(y_pred.iter()) {
-            metric.update(yp, &ClassifierTarget::from(*yt), Some(1.0));
+            metric.update(&ClassifierTarget::from(*yt), yp, Some(1.0));
         }
+        println!("ROCAUC: {:.2}%", metric.get() * 100.0);
+    }
+    #[test]
+    fn test_rocauc_proba() {
+        let y_pred = vec![
+            ClassifierOutput::Probabilities(HashMap::from([
+                (ClassifierTarget::from(true), 0.1),
+                (ClassifierTarget::from(false), 0.9),
+            ])),
+            ClassifierOutput::Probabilities(HashMap::from([(ClassifierTarget::from(true), 0.4)])),
+            ClassifierOutput::Probabilities(HashMap::from([
+                (ClassifierTarget::from(true), 0.35),
+                (ClassifierTarget::from(false), 0.65),
+            ])),
+            ClassifierOutput::Probabilities(HashMap::from([
+                (ClassifierTarget::from(true), 0.8),
+                (ClassifierTarget::from(false), 0.2),
+            ])),
+        ];
+        let y_true: Vec<bool> = vec![false, false, true, true];
+
+        let mut metric = ROCAUC::new(Some(10), ClassifierTarget::from(true));
+
+        for (yt, yp) in y_true.iter().zip(y_pred.iter()) {
+            metric.update(&ClassifierTarget::from(*yt), yp, Some(1.0));
+        }
+
+        assert!(metric.get() - 0.875 < 1e-7);
     }
 }

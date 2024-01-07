@@ -154,9 +154,9 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> C
             .unwrap_or(&F::zero())
             .clone()
     }
-    pub fn true_negatives(&self, label: &ClassifierTarget) -> F {
-        self.total_true_positives() - self.true_positives(label)
-    }
+    // pub fn true_negatives(&self, label: &ClassifierTarget) -> F {
+    //     self.total_true_positives() - self.true_positives(label)
+    // }
 
     pub fn total_true_positives(&self) -> F {
         self.data
@@ -167,11 +167,11 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> C
         *self.sum_col.get(label).unwrap_or(&F::zero()) - self.true_positives(label)
     }
 
-    pub fn total_true_negatives(&self) -> F {
-        self.data
-            .keys()
-            .fold(F::zero(), |sum, label| sum + self.true_negatives(label))
-    }
+    // pub fn total_true_negatives(&self) -> F {
+    //     self.data
+    //         .keys()
+    //         .fold(F::zero(), |sum, label| sum + self.true_negatives(label))
+    // }
 
     pub fn total_false_positives(&self) -> F {
         self.data
@@ -185,6 +185,18 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> C
         self.data
             .keys()
             .fold(F::zero(), |sum, label| sum + self.false_negatives(label))
+    }
+    pub fn true_negatives(&self, label: &ClassifierTarget) -> F {
+        self.total_weight
+            - *self.sum_row.get(label).unwrap_or(&F::zero())
+            - *self.sum_col.get(label).unwrap_or(&F::zero())
+            + self.true_positives(label)
+    }
+
+    pub fn total_true_negatives(&self) -> F {
+        self.data
+            .keys()
+            .fold(F::zero(), |sum, label| sum + self.true_negatives(label))
     }
 }
 
@@ -237,6 +249,8 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> D
 
 #[cfg(test)]
 mod tests {
+    use num::Unsigned;
+
     use super::*;
     #[test]
     fn test_confusion_matrix() {
@@ -271,5 +285,46 @@ mod tests {
                 .unwrap_or(&0.0),
             1.0
         );
+    }
+    #[test]
+    fn test_confusion_matrix_issue() {
+        let y_pred = vec![
+            ClassifierOutput::Prediction(ClassifierTarget::from("cat")),
+            ClassifierOutput::Prediction(ClassifierTarget::from("dog")),
+            ClassifierOutput::Prediction(ClassifierTarget::from("bird")),
+            ClassifierOutput::Prediction(ClassifierTarget::from("cat")),
+        ];
+        let y_true: Vec<&str> = vec!["cat", "cat", "dog", "cat"];
+        let y_true_stream = ClassifierTarget::from_iter(y_true.into_iter());
+        let mut cm: ConfusionMatrix<f64> = ConfusionMatrix::new();
+        let mut iteration: usize = 0;
+        for (yt, yp) in y_true_stream.zip(y_pred.iter()) {
+            cm.update(&yp, &yt, Some(1.0));
+
+            let tp = cm.true_positives(&ClassifierTarget::from("cat"));
+            let tn = cm.true_negatives(&ClassifierTarget::from("cat"));
+            let fp = cm.false_positives(&ClassifierTarget::from("cat"));
+            let fn_ = cm.false_negatives(&ClassifierTarget::from("cat"));
+            println!("iteration: {}", iteration);
+            println!("tp: {}, tn: {}, fp: {}, fn: {}", tp, tn, fp, fn_);
+            println!("data :{:?}", cm.data);
+            println!("sum col {:?}", cm.sum_col);
+            println!("sum row {:?}", cm.sum_row);
+            println!("total true positives: {}", cm.total_true_positives());
+            println!("total true negatives: {}", cm.total_true_negatives());
+            println!("total false positives: {}", cm.total_false_positives());
+            println!("total false negatives: {}", cm.total_false_negatives());
+            println!("-----------------");
+
+            iteration += 1;
+        }
+        let tp = cm.true_positives(&ClassifierTarget::from("cat"));
+        let tn = cm.true_negatives(&ClassifierTarget::from("cat"));
+        let fp = cm.false_positives(&ClassifierTarget::from("cat"));
+        let fn_ = cm.false_negatives(&ClassifierTarget::from("cat"));
+        assert!(tp == 2.0);
+        assert!(tn == 1.0);
+        assert!(fp == 0.0);
+        assert!(fn_ == 1.0);
     }
 }
