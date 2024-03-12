@@ -10,6 +10,8 @@ use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
 use crate::common::{ClassifierOutput, ClassifierTarget, Observation};
 
+use super::AnomalyDetector;
+
 // Return the index of a node's left child node.
 #[inline]
 fn left_child(node: u32) -> u32 {
@@ -227,16 +229,21 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> H
         }
         return None;
     }
-    pub fn learn_one(&mut self, observation: &Observation<F>) {
-        self.update(observation, false, true);
-    }
-    pub fn score_one(&mut self, observation: &Observation<F>) -> Option<ClassifierOutput<F>> {
-        self.update(observation, true, false)
-    }
     fn max_score(&self) -> F {
         F::from(self.n_trees).unwrap()
             * F::from(self.window_size).unwrap()
             * (F::from(2.).unwrap().powi(self.height as i32 + 1) - F::one())
+    }
+}
+
+impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> AnomalyDetector<F>
+    for HalfSpaceTree<F>
+{
+    fn learn_one(&mut self, observation: &Observation<F>) {
+        self.update(observation, false, true);
+    }
+    fn score_one(&mut self, observation: &Observation<F>) -> Option<ClassifierOutput<F>> {
+        self.update(observation, true, false)
     }
 }
 
@@ -275,7 +282,6 @@ mod tests {
 }
 
 mod tests {
-    use super::*;
     #[test]
     fn test_left_child() {
         let node = 42;
