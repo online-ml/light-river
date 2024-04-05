@@ -34,6 +34,7 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> T
     fn new(n_trees: u32, height: u32, features: &Vec<String>, rng: &mut ThreadRng) -> Self {
         // #nodes = 2 ^ height - 1
         let n_nodes: usize = usize::try_from(n_trees * (u32::pow(2, height) - 1)).unwrap();
+        // Branches are "non-leaf nodes"
         // #branches = 2 ^ (height - 1) - 1
         let n_branches = usize::try_from(n_trees * (u32::pow(2, height - 1) - 1)).unwrap();
 

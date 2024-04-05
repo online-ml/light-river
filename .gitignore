@@ -3,3 +3,6 @@ Cargo.lock
 target/
 *.csv
 *.zip
+
+# Local configuration
+.cargo/config.toml

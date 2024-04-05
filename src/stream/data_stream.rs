@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 
 use crate::common::{ClassifierTarget, Observation};
 use num::Float;
@@ -47,6 +48,18 @@ pub enum Data<F: Float + std::str::FromStr> {
     Bool(bool),
     String(String),
 }
+
+impl<F: Float + fmt::Display + std::str::FromStr> fmt::Display for Data<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Data::Scalar(v) => write!(f, "{}", v),
+            Data::Int(v) => write!(f, "{}", v),
+            Data::Bool(v) => write!(f, "{}", v),
+            Data::String(v) => write!(f, "{}", v),
+        }
+    }
+}
+
 impl<F: Float + std::fmt::Display + std::str::FromStr> Data<F> {
     pub fn to_float(&self) -> Result<F, &str> {
         match self {
@@ -70,6 +83,30 @@ impl<F: Float + std::fmt::Display + std::str::FromStr> Data<F> {
 pub enum DataStream<F: Float + std::str::FromStr> {
     X(HashMap<String, Data<F>>),
     XY(HashMap<String, Data<F>>, HashMap<String, Data<F>>),
+}
+
+impl<F: Float + fmt::Display + std::str::FromStr> fmt::Display for DataStream<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fn fmt_hashmap<F: Float + fmt::Display + std::str::FromStr>(
+            f: &mut fmt::Formatter<'_>,
+            hm: &HashMap<String, Data<F>>,
+            hm_name: &str,
+        ) -> fmt::Result {
+            write!(f, "{hm_name}: [")?;
+            for (key, value) in hm {
+                write!(f, " {}: {},", key, value)?;
+            }
+            write!(f, " ] ")
+        }
+
+        match self {
+            DataStream::X(x) => fmt_hashmap(f, x, "X"),
+            DataStream::XY(x, y) => {
+                fmt_hashmap(f, x, "X")?;
+                fmt_hashmap(f, y, "Y")
+            }
+        }
+    }
 }
 
 impl<F: Float + std::str::FromStr + std::fmt::Display> DataStream<F> {
