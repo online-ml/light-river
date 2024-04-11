@@ -184,7 +184,7 @@ where
 /// ```
 pub type ClassifierTargetProbabilities<F> = HashMap<ClassifierTarget, F>;
 
-/// Represents the output of a classifier model, which can be either a prediction or a probability distribution.
+/// Represents the output of a classification model, which can be either a prediction or a probability distribution.
 /// The probability distribution is represented by a HashMap of ClassifierTarget and Float values.
 /// The prediction is represented by a ClassifierTarget.
 /// # Example
@@ -228,6 +228,29 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> C
                 probs
             }
             ClassifierOutput::Probabilities(y) => y.clone(),
+        }
+    }
+}
+
+/// Represents the output of a regression model, is a prediction.
+/// The prediction is represented by a RegressionTarget.
+/// # Example
+/// ```
+/// use light_river::common::{RegressionOutput, RegressionTarget};
+/// let target: RegressionTarget<f32> = 0.1;
+/// let probs: RegressionOutput<f32> = RegressionOutput::Prediction(target);
+/// let pred = probs.get_predicition();
+/// assert_eq!(pred, target);
+/// ```
+#[derive(Debug)]
+pub enum RegressionOutput<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign>
+{
+    Prediction(RegressionTarget<F>),
+}
+impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> RegressionOutput<F> {
+    pub fn get_predicition(&self) -> RegressionTarget<F> {
+        match self {
+            RegressionOutput::Prediction(y) => y.clone(),
         }
     }
 }

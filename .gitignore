@@ -3,6 +3,6 @@ Cargo.lock
 target/
 *.csv
 *.zip
-
+/.vscode/
 # Local configuration
 .cargo/config.toml

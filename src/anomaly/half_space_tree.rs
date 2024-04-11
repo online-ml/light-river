@@ -66,6 +66,7 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> T
         hst
     }
 }
+
 /// Half-space trees are an online variant of isolation forests.
 /// They work well when anomalies are spread out.
 /// However, they do not work well if anomalies are packed together in windows.
@@ -273,10 +274,7 @@ mod tests {
             let _ = hst.update(&observation, true, true);
         }
     }
-}
 
-mod tests {
-    use super::*;
     #[test]
     fn test_left_child() {
         let node = 42;
