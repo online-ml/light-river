@@ -189,19 +189,16 @@ pub type ClassifierTargetProbabilities<F> = HashMap<ClassifierTarget, F>;
 /// The prediction is represented by a ClassifierTarget.
 /// # Example
 /// ```
-/// use light_river::common::{ClassifierTarget, ClassifierTargetProbabilities, ClassifierOutput};
-/// use num::Float;
-/// use std::collections::HashMap;
-/// use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
-/// use num::FromPrimitive;
-/// use maplit::{hashmap, hashset};
-/// let mut probs: ClassifierOutput<f64> = ClassifierOutput::Probabilities( hashmap!{
-///    ClassifierTarget::String("Cat".to_string()) => 0.7,
-///    ClassifierTarget::String("Dog".to_string()) => 0.15,
-///    ClassifierTarget::String("Cow".to_string()) => 0.15,
+/// use light_river::common::{ClassifierTarget, ClassifierOutput};
+/// use maplit::hashmap;
+/// let probs: ClassifierOutput<f64> = ClassifierOutput::Probabilities( hashmap!{
+///     ClassifierTarget::String("Cat".to_string()) => 0.7,
+///     ClassifierTarget::String("Dog".to_string()) => 0.15,
+///     ClassifierTarget::String("Cow".to_string()) => 0.15,
 /// });
-/// let mut prediction = probs.get_predicition();
-/// assert_eq!(prediction, ClassifierTarget::String("Cat".to_string()));
+/// let pred = probs.get_predicition();
+/// assert_eq!(pred, ClassifierTarget::String("Cat".to_string()));
+/// ```
 #[derive(Debug)]
 pub enum ClassifierOutput<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign>
 {
