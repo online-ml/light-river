@@ -1,7 +1,7 @@
 use light_river::classification::mondrian_tree::MondrianTree;
 use light_river::common::ClassifierOutput;
 use light_river::common::ClassifierTarget;
-use light_river::datasets::credit_card::CreditCard;
+use light_river::datasets::keystroke::Keystroke;
 use light_river::metrics::rocauc::ROCAUC;
 use light_river::metrics::traits::ClassificationMetric;
 use light_river::stream::data_stream::DataStream;
@@ -30,13 +30,13 @@ fn main() {
     let mut counter = 0;
 
     // LOOP
-    let transactions: IterCsv<f32, File> = CreditCard::load_credit_card_transactions().unwrap();
+    let transactions: IterCsv<f32, File> = Keystroke::load_data().unwrap();
     for transaction in transactions {
         let data = transaction.unwrap();
-        // println!("Data: {data}");
+        println!("Data: {data}");
         let observation = data.get_observation();
         // println!("Observation: {:?}", observation);
-        let label = data.to_classifier_target("Class").unwrap();
+        let label = data.to_classifier_target("subject").unwrap();
         // let score = mt.update(&observation, true, true).unwrap();
 
         // Label: No idea why we it
