@@ -29,6 +29,10 @@ opt-level = 3
 name = "credit_card"
 path = "examples/anomaly_detection/credit_card.rs"
 
+[[example]]
+name = "credit_card_clf"
+path = "examples/classification/credit_card.rs"
+
 [[bench]]
 name = "hst"
 harness = false

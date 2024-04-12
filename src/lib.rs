@@ -1,4 +1,5 @@
 pub mod anomaly;
+pub mod classification;
 pub mod common;
 pub mod datasets;
 pub mod metrics;

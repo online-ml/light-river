@@ -80,6 +80,7 @@ impl<F: Float + std::fmt::Display + std::str::FromStr> Data<F> {
     }
 }
 
+#[derive(Debug)]
 pub enum DataStream<F: Float + std::str::FromStr> {
     X(HashMap<String, Data<F>>),
     XY(HashMap<String, Data<F>>, HashMap<String, Data<F>>),
