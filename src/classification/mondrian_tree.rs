@@ -12,6 +12,7 @@ use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 use std::rc::Rc;
 
 use crate::common::{ClassifierOutput, ClassifierTarget, Observation};
+use crate::stream::data_stream::Data;
 
 trait FType:
     Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign + std::fmt::Debug
@@ -43,6 +44,8 @@ impl Stats {
         unimplemented!()
     }
 }
+
+/// Node struct
 #[derive(Debug, Copy, Clone)]
 struct Node<F> {
     parent: Option<usize>,
@@ -57,7 +60,6 @@ struct Node<F> {
     // stats: Stats, // Ignoring stats for now since it should be a fixed-size array, vector should not work since we are using fixed-size arrays in Trees, but try it out and see what comes out
 }
 impl<F: FType> Node<F> {
-    // pub fn update_leaf(&mut self, x: F, label: F) {
     pub fn update_leaf(&mut self) {
         unimplemented!()
     }
@@ -102,6 +104,7 @@ impl<F: FType> Trees<F> {
         };
         let mut nodes = vec![node_default; n_nodes];
 
+        // For each node assign indicies of: parent, and left/right child
         for i in 0..n_nodes {
             let left_idx = 2 * i + 1;
             let right_idx = 2 * i + 2;
@@ -129,7 +132,7 @@ pub struct MondrianTree<F: FType> {
     n_nodes: usize,
     trees: Trees<F>,
     first_learn: bool,
-    pos_val: ClassifierTarget,
+    // pos_val: ClassifierTarget,
 }
 impl<F: FType> MondrianTree<F> {
     pub fn new(
@@ -137,12 +140,13 @@ impl<F: FType> MondrianTree<F> {
         n_trees: usize,
         height: usize,
         features: Vec<String>,
-        pos_val: ClassifierTarget,
+        // pos_val: ClassifierTarget,
     ) -> Self {
         let features_clone = features.clone();
         let mut rng = rand::thread_rng();
         // #nodes = 2 ^ height - 1
         let n_nodes = usize::pow(2, height.try_into().unwrap()) - 1;
+        // TODO: this is only 1 tree, implement later for mulpile ones
         let mut trees = Trees::new(n_trees, height, &features, &mut rng, n_nodes);
         MondrianTree::<F> {
             window_size,
@@ -153,34 +157,42 @@ impl<F: FType> MondrianTree<F> {
             n_nodes,
             trees,
             first_learn: false,
-            pos_val,
+            // pos_val,
         }
     }
 
-    pub fn update(
+    fn create_leaf(&self) {
+        unimplemented!()
+    }
+
+    fn predict_proba(&self) {
+        unimplemented!()
+    }
+
+    fn extend_mondrian_block(&self) {
+        unimplemented!()
+    }
+
+    /// Function "learn_one"
+    pub fn partial_fit(&self, x: &HashMap<String, f32>, y: &ClassifierTarget) {
+        // No need to check if node is root, the full tree is already built
+        self.extend_mondrian_block()
+    }
+
+    fn fit(&self) {
+        unimplemented!()
+    }
+
+    // Function "score_one"
+    pub fn predict(
         &mut self,
-        observation: &Observation<F>,
-        do_score: bool,
-        do_update: bool,
+        x: &HashMap<String, Data<f32>>,
+        y: &HashMap<String, Data<f32>>,
     ) -> Option<ClassifierOutput<F>> {
-        if do_score {
-            let score: F = F::from(1234.0).unwrap();
-            return Some(ClassifierOutput::Probabilities(HashMap::from([(
-                ClassifierTarget::from(self.pos_val.clone()),
-                score,
-            )])));
-        }
-        return None;
+        unimplemented!()
     }
-    pub fn learn_one(&mut self, observation: &Observation<F>) {
-        self.update(observation, false, true);
-    }
-    pub fn score_one(&mut self, observation: &Observation<F>) -> Option<ClassifierOutput<F>> {
-        self.update(observation, true, false)
-    }
-    fn max_score(&self) -> F {
-        F::from(self.n_trees).unwrap()
-            * F::from(self.window_size).unwrap()
-            * (F::from(2.).unwrap().powi(self.height as i32 + 1) - F::one())
+
+    fn get_params(&self) {
+        unimplemented!()
     }
 }

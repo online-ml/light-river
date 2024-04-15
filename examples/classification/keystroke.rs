@@ -16,36 +16,31 @@ fn main() {
     let n_trees: usize = 1;
     let height: usize = 4;
 
-    // TODO: Check if still need for classification or it was useful only in anomany detection
-    let pos_val_metric = ClassifierTarget::from("1".to_string());
-    let pos_val_tree = pos_val_metric.clone();
-
+    // TODO: change it, probably they can be taken from "data.get_x" or somewhere there
     let features = vec!["F1".to_string(), "F2".to_string(), "F3".to_string()];
 
-    // INITIALIZATION
-    let mut mt: MondrianTree<f32> =
-        MondrianTree::new(window_size, n_trees, height, features, pos_val_tree);
+    let mut mt: MondrianTree<f32> = MondrianTree::new(window_size, n_trees, height, features);
 
     // DEBUG: remove it
     let mut counter = 0;
 
     // LOOP
-    let transactions: IterCsv<f32, File> = Keystroke::load_data().unwrap();
+    let transactions = Keystroke::load_data().unwrap();
     for transaction in transactions {
         let data = transaction.unwrap();
-        println!("Data: {data}");
-        let observation = data.get_observation();
-        // println!("Observation: {:?}", observation);
-        let label = data.to_classifier_target("subject").unwrap();
-        // let score = mt.update(&observation, true, true).unwrap();
 
-        // Label: No idea why we it
-        // println!("Label: {:?}", label);
-        // println!("Score: {:?}", score);
-        // println!("");
+        let x = data.get_observation();
+        let y = data.to_classifier_target("subject").unwrap();
+
+        mt.partial_fit(&x, &y);
+
+        // let score = mt.update(&x, &y, true, false, &target_label).unwrap();
+
+        // println!("=== Score: {:?}", score);
+        println!("");
 
         counter += 1;
-        if counter > 10 {
+        if counter >= 3 {
             break;
         }
         // roc_auc.update(&score, &label, Some(1.));
