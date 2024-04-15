@@ -34,7 +34,7 @@ fn main() {
 
         mt.partial_fit(&x, &y);
 
-        // let score = mt.update(&x, &y, true, false, &target_label).unwrap();
+        let score = mt.predict_proba(&x, &y);
 
         // println!("=== Score: {:?}", score);
         println!("");

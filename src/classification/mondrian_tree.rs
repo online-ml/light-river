@@ -1,4 +1,5 @@
 use num::pow::Pow;
+use num::traits::float;
 use rand::prelude::*;
 
 use num::{Float, FromPrimitive};
@@ -7,9 +8,9 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::env::consts;
 use std::iter::FlatMap;
-use std::mem;
 use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 use std::rc::Rc;
+use std::{mem, usize};
 
 use crate::common::{ClassifierOutput, ClassifierTarget, Observation};
 use crate::stream::data_stream::Data;
@@ -46,13 +47,13 @@ impl Stats {
 }
 
 /// Node struct
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 struct Node<F> {
     parent: Option<usize>,
-    tau: F, // Time parameter (?)
+    tau: F, // Time parameter: updated during 'node creation' or 'node update'
     is_leaf: bool,
-    min_list: [F; 2], // Lists representing the minimum and maximum values of the data points contained in the current node
-    max_list: [F; 2],
+    min_list: Vec<F>, // Lists representing the minimum and maximum values of the data points contained in the current node
+    max_list: Vec<F>,
     delta: F, // Dimension in which a split occurs (?)
     xi: F,    // Split point along the dimension specified by delta
     left: Option<usize>,
@@ -60,17 +61,19 @@ struct Node<F> {
     // stats: Stats, // Ignoring stats for now since it should be a fixed-size array, vector should not work since we are using fixed-size arrays in Trees, but try it out and see what comes out
 }
 impl<F: FType> Node<F> {
-    pub fn update_leaf(&mut self) {
+    pub fn update_leaf(&self) {
         unimplemented!()
     }
-    pub fn update_internal(&mut self) {
+    pub fn update_internal(&self) {
         unimplemented!()
     }
-    pub fn get_parent_tau(&self) -> f64 {
-        unimplemented!()
+    pub fn get_parent_tau(&self, parent: Option<&Node<F>>) -> F {
+        panic!(
+            "Not implemented, adds a lot of complexity for no reason. Just extract tau directly."
+        )
         // match self.parent {
-        //     Some(ref parent) => parent.borrow().tau,
-        //     None => 0.0,
+        //     Some(_) => parent.tau,
+        //     None => F::from_f32(0.0).unwrap(),
         // }
     }
 }
@@ -87,15 +90,19 @@ impl<F: FType> Trees<F> {
         n_nodes: usize,
     ) -> Self {
         if n_trees != 1 {
-            unimplemented!();
+            unimplemented!("Only implemented for 1 tree. This code has to be heavily restructured for multiple trees.");
         }
+
+        // e.g. [0.0, 0.0, 0.0, ...]
+        let min_list: Vec<F> = features.iter().map(|_| F::from_f64(0.0).unwrap()).collect();
+        let max_list: Vec<F> = features.iter().map(|_| F::from_f64(0.0).unwrap()).collect();
 
         let node_default = Node::<F> {
             parent: None,
             tau: F::from_f64(0.33).unwrap(),
             is_leaf: false,
-            min_list: [F::from_f64(0.1).unwrap(), F::from_f64(0.2).unwrap()],
-            max_list: [F::from_f64(0.3).unwrap(), F::from_f64(0.4).unwrap()],
+            min_list,
+            max_list,
             delta: F::from_f64(0.123).unwrap(),
             xi: F::from_f64(0.456).unwrap(),
             left: None,
@@ -165,31 +172,91 @@ impl<F: FType> MondrianTree<F> {
         unimplemented!()
     }
 
-    fn predict_proba(&self) {
-        unimplemented!()
+    /// Note: In Nel215 codebase should work on multiple records, here it's
+    /// working only on one, so it's the same as "predict()".
+    pub fn predict_proba(
+        &mut self,
+        x: &HashMap<String, f32>,
+        y: &ClassifierTarget,
+    ) -> ClassifierOutput<F> {
+        self.predict(x, 0, 1.0)
     }
 
     fn extend_mondrian_block(&self) {
-        unimplemented!()
+        println!("WARNING: extend_mondrian_block not implemented")
     }
 
-    /// Function "learn_one"
-    pub fn partial_fit(&self, x: &HashMap<String, f32>, y: &ClassifierTarget) {
+    /// Note: In Nel215 codebase should work on multiple records, here it's
+    /// working only on one.
+    ///
+    /// Function in River/LightRiver: "learn_one()"
+    pub fn partial_fit(&mut self, x: &HashMap<String, f32>, y: &ClassifierTarget) {
         // No need to check if node is root, the full tree is already built
-        self.extend_mondrian_block()
+        self.extend_mondrian_block();
     }
 
     fn fit(&self) {
         unimplemented!()
     }
 
-    // Function "score_one"
-    pub fn predict(
-        &mut self,
-        x: &HashMap<String, Data<f32>>,
-        y: &HashMap<String, Data<f32>>,
-    ) -> Option<ClassifierOutput<F>> {
-        unimplemented!()
+    /// Function in River/LightRiver: "score_one()"
+    ///
+    /// Recursive function to predict probabilities.
+    /// - `x`: Input data.
+    /// - `node_idx`: Current node index in the tree.
+    /// - `p_not_separated_yet`: Probability that `x` has not been separated by any split in the tree up to this node.
+    fn predict(
+        &self,
+        x: &HashMap<String, f32>,
+        node_idx: usize,
+        p_not_separated_yet: f32,
+    ) -> ClassifierOutput<F> {
+        let node = &self.trees.nodes[node_idx];
+        println!("Node: {:?}", node);
+
+        // Step 1: Calculate the time delta from the parent node.
+        // If node is root its time is 0
+        let parent_tau: F = match node.parent {
+            Some(_) => self.trees.nodes[node.parent.unwrap()].tau,
+            None => F::from_f32(0.0).unwrap(),
+        };
+        let d = node.tau - parent_tau;
+        println!("Time delta {:?}", d);
+
+        // Step 2: Compute the distance `eta` of `x` from the node's data boundaries.
+        // let eta = x.iter().map(|(k, v)| {
+        //     let max_dist = F::max(node.max_list.get(k).unwrap_or(&F::zero()) - *v, F::zero());
+        //     let min_dist = F::max(*v - node.min_list.get(k).unwrap_or(&F::zero()), F::zero());
+        //     max_dist + min_dist
+        // }).sum();
+
+        // // Step 3: Calculate the probability `p` of not being separated by new splits.
+        // let p = F::one() - (-d * eta).exp();
+
+        // // Step 4: Generate a result for the current node using its statistics.
+        // let result = node.stat.create_result(x, p_not_separated_yet * p);
+
+        // // Step 5: If the node is a leaf, calculate the final weight and return the merged result.
+        // if node.is_leaf {
+        //     let w = p_not_separated_yet * (F::one() - p);
+        //     return result.merge(node.stat.create_result(x, w));
+        // }
+
+        // // Step 6: Determine the appropriate child node based on the split condition and recurse.
+        // let child_idx = if x.get(&node.delta) <= Some(&node.xi) {
+        //     node.left.expect("Left child node index missing")
+        // } else {
+        //     node.right.expect("Right child node index missing")
+        // };
+        // let child_result = self._predict(x, child_idx, p_not_separated_yet * (F::one() - p));
+
+        // // Step 7: Merge the results from the current node and its child.
+        // result.merge(child_result)
+
+        ClassifierOutput::Probabilities(HashMap::from([(
+            ClassifierTarget::from("target-example"),
+            F::one(),
+        )]))
     }
 
     fn get_params(&self) {
