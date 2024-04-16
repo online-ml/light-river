@@ -6,6 +6,7 @@ use light_river::metrics::rocauc::ROCAUC;
 use light_river::metrics::traits::ClassificationMetric;
 use light_river::stream::data_stream::DataStream;
 use light_river::stream::iter_csv::IterCsv;
+use ndarray::Array1;
 use std::borrow::Borrow;
 use std::fs::File;
 use std::time::Instant;
@@ -42,16 +43,17 @@ fn main() {
 
         mt.partial_fit(&x, &y);
 
-        let x_ord: Vec<f32> = features.iter().map(|k| x[k]).collect();
-        let score = mt.predict_proba(&x_ord, &y);
+        let x_ord_vec: Vec<f32> = features.iter().map(|k| x[k]).collect();
+        let x_ord_arr = Array1::<f32>::from_vec(x_ord_vec);
+        let score = mt.predict_proba(&x_ord_arr, &y);
 
-        println!("=== Score: {:?}", score);
+        // println!("=== Score: {:?}", score);
+        // println!("");
 
-        counter += 1;
-        if counter >= 3 {
-            break;
-        }
-        // roc_auc.update(&score, &label, Some(1.));
+        // counter += 1;
+        // if counter >= 3 {
+        //     break;
+        // }
     }
 
     let elapsed_time = now.elapsed();

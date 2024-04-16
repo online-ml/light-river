@@ -1,4 +1,5 @@
-// use ndarray::Array1;
+use core::iter::zip;
+use ndarray::{Array, Array1};
 use num::pow::Pow;
 use num::traits::float;
 use rand::prelude::*;
@@ -11,7 +12,7 @@ use std::env::consts;
 use std::iter::FlatMap;
 use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 use std::rc::Rc;
-use std::{mem, usize};
+use std::{cmp, mem, usize};
 
 use crate::common::{ClassifierOutput, ClassifierTarget, Observation};
 use crate::stream::data_stream::Data;
@@ -53,8 +54,8 @@ struct Node<F> {
     parent: Option<usize>,
     tau: F, // Time parameter: updated during 'node creation' or 'node update'
     is_leaf: bool,
-    min_list: Vec<F>, // Lists representing the minimum and maximum values of the data points contained in the current node
-    max_list: Vec<F>,
+    min_list: Array1<F>, // Lists representing the minimum and maximum values of the data points contained in the current node
+    max_list: Array1<F>,
     delta: F, // Dimension in which a split occurs (?)
     xi: F,    // Split point along the dimension specified by delta
     left: Option<usize>,
@@ -95,17 +96,19 @@ impl<F: FType> Trees<F> {
         }
 
         // e.g. [0.0, 0.0, 0.0, ...]
-        let min_list: Vec<F> = features.iter().map(|_| F::from_f64(0.0).unwrap()).collect();
-        let max_list: Vec<F> = features.iter().map(|_| F::from_f64(0.0).unwrap()).collect();
+        let min_list_vec: Vec<F> = features.iter().map(|_| F::from_f32(0.0).unwrap()).collect();
+        let min_list = Array1::<F>::from_vec(min_list_vec);
+        let max_list_vec: Vec<F> = features.iter().map(|_| F::from_f32(0.0).unwrap()).collect();
+        let max_list = Array1::<F>::from_vec(max_list_vec);
 
         let node_default = Node::<F> {
             parent: None,
-            tau: F::from_f64(0.33).unwrap(),
+            tau: F::from_f32(0.33).unwrap(),
             is_leaf: false,
             min_list,
             max_list,
-            delta: F::from_f64(0.123).unwrap(),
-            xi: F::from_f64(0.456).unwrap(),
+            delta: F::from_f32(0.123).unwrap(),
+            xi: F::from_f32(0.456).unwrap(),
             left: None,
             right: None,
             // stats: Stats::new,
@@ -178,14 +181,14 @@ impl<F: FType> MondrianTree<F> {
     pub fn predict_proba(
         &mut self,
         // x: &HashMap<String, f32>,
-        x: &Vec<F>,
+        x: &Array1<F>,
         y: &ClassifierTarget,
     ) -> ClassifierOutput<F> {
         self.predict(x, 0, 1.0)
     }
 
     fn extend_mondrian_block(&self) {
-        println!("WARNING: extend_mondrian_block not implemented")
+        // println!("WARNING: extend_mondrian_block not implemented")
     }
 
     /// Note: In Nel215 codebase should work on multiple records, here it's
@@ -208,35 +211,38 @@ impl<F: FType> MondrianTree<F> {
     /// - `node_idx`: Current node index in the tree.
     /// - `p_not_separated_yet`: Probability that `x` has not been separated by any split in the tree up to this node.
     fn predict(
-        &self,
-        x: &Vec<F>,
+        &mut self,
+        x: &Array1<F>,
         node_idx: usize,
         p_not_separated_yet: f32,
     ) -> ClassifierOutput<F> {
-        let node = &self.trees.nodes[node_idx];
-        println!("Node: {:?}", node);
+        // let node = &self.trees.nodes[node_idx];
+
+        // DEBUG: REMOVE IT
+        for i in 0..self.n_nodes {
+            let mut tree = &mut self.trees.nodes[i];
+            for (mut a, mut b) in zip(&mut tree.min_list, &mut tree.max_list) {
+                *a += F::from_f32(1.0).unwrap();
+                *b += F::from_f32(1.0).unwrap();
+            }
+        }
 
         // Step 1: Calculate the time delta from the parent node.
         // If node is root its time is 0
-        let parent_tau: F = match node.parent {
-            Some(_) => self.trees.nodes[node.parent.unwrap()].tau,
-            None => F::from_f32(0.0).unwrap(),
-        };
-        let d = node.tau - parent_tau;
-        println!("Time delta {:?}", d);
+        // let parent_tau: F = match node.parent {
+        //     Some(_) => self.trees.nodes[node.parent.unwrap()].tau,
+        //     None => F::from_f32(0.0).unwrap(),
+        // };
+        // let d = node.tau - parent_tau;
 
         // Step 2: Compute the distance `eta` of `x` from the node's data boundaries.
-        // let max_list_arr = Array1::<F>::from_vec(node.max_list);
-        // let x_arr = Array1::<F>::from_vec(x);
-        // let eta_tmp = node.max_list - x;
-
-        // println!("eta_tmp: {eta_tmp}");
-
-        // let eta = x.iter().map(|(k, v)| {
-        //     let max_dist = F::max(node.max_list.get(k).unwrap_or(&F::zero()) - *v, F::zero());
-        //     let min_dist = F::max(*v - node.min_list.get(k).unwrap_or(&F::zero()), F::zero());
-        //     max_dist + min_dist
-        // }).sum();
+        // TODO: test it, I'm 70% sure this works.
+        // let eta_min = (&node.max_list - x).mapv(|v| F::max(v, F::zero()));
+        // let eta_max = (&node.max_list - x).mapv(|v| F::max(v, F::zero()));
+        // let eta = eta_min.sum() + eta_max.sum();
+        // println!("eta_min: {:?}", eta_min);
+        // println!("eta_max: {:?}", eta_max);
+        // println!("eta: {:?}", eta);
 
         // // Step 3: Calculate the probability `p` of not being separated by new splits.
         // let p = F::one() - (-d * eta).exp();
