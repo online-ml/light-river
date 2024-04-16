@@ -218,14 +218,20 @@ impl<F: FType> MondrianTree<F> {
     ) -> ClassifierOutput<F> {
         // let node = &self.trees.nodes[node_idx];
 
+        let mut node_indicies: Vec<usize> = (0..self.n_nodes).collect();
+        // node_indicies.shuffle(&mut self.rng);
+        // println!("node_indicies: {:?}", node_indicies);
+
         // DEBUG: REMOVE IT
-        for i in 0..self.n_nodes {
+        for i in node_indicies {
             let mut tree = &mut self.trees.nodes[i];
             for (mut a, mut b) in zip(&mut tree.min_list, &mut tree.max_list) {
                 *a += F::from_f32(1.0).unwrap();
                 *b += F::from_f32(1.0).unwrap();
             }
         }
+
+        
 
         // Step 1: Calculate the time delta from the parent node.
         // If node is root its time is 0

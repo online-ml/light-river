@@ -35,5 +35,5 @@ pub(crate) fn download_csv_file(
     url: &str,
     file_name: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    unimplemented!()
+    unimplemented!("For now download the file in the root directory of the project and rename it to 'keystroke.csv'");
 }

@@ -27,7 +27,7 @@ fn main() {
     let now = Instant::now();
     let window_size: usize = 1000;
     let n_trees: usize = 1;
-    let height: usize = 4;
+    let height: usize = 10;
 
     let transactions_f = Keystroke::load_data().unwrap();
     let features = get_features(transactions_f);
