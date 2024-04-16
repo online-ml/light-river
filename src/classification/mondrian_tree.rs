@@ -1,3 +1,4 @@
+// use ndarray::Array1;
 use num::pow::Pow;
 use num::traits::float;
 use rand::prelude::*;
@@ -146,7 +147,7 @@ impl<F: FType> MondrianTree<F> {
         window_size: usize,
         n_trees: usize,
         height: usize,
-        features: Vec<String>,
+        features: &Vec<String>,
         // pos_val: ClassifierTarget,
     ) -> Self {
         let features_clone = features.clone();
@@ -176,7 +177,8 @@ impl<F: FType> MondrianTree<F> {
     /// working only on one, so it's the same as "predict()".
     pub fn predict_proba(
         &mut self,
-        x: &HashMap<String, f32>,
+        // x: &HashMap<String, f32>,
+        x: &Vec<F>,
         y: &ClassifierTarget,
     ) -> ClassifierOutput<F> {
         self.predict(x, 0, 1.0)
@@ -207,7 +209,7 @@ impl<F: FType> MondrianTree<F> {
     /// - `p_not_separated_yet`: Probability that `x` has not been separated by any split in the tree up to this node.
     fn predict(
         &self,
-        x: &HashMap<String, f32>,
+        x: &Vec<F>,
         node_idx: usize,
         p_not_separated_yet: f32,
     ) -> ClassifierOutput<F> {
@@ -224,6 +226,12 @@ impl<F: FType> MondrianTree<F> {
         println!("Time delta {:?}", d);
 
         // Step 2: Compute the distance `eta` of `x` from the node's data boundaries.
+        // let max_list_arr = Array1::<F>::from_vec(node.max_list);
+        // let x_arr = Array1::<F>::from_vec(x);
+        // let eta_tmp = node.max_list - x;
+
+        // println!("eta_tmp: {eta_tmp}");
+
         // let eta = x.iter().map(|(k, v)| {
         //     let max_dist = F::max(node.max_list.get(k).unwrap_or(&F::zero()) - *v, F::zero());
         //     let min_dist = F::max(*v - node.min_list.get(k).unwrap_or(&F::zero()), F::zero());

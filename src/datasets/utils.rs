@@ -30,3 +30,10 @@ pub(crate) fn download_zip_file(
 
     Ok(())
 }
+
+pub(crate) fn download_csv_file(
+    url: &str,
+    file_name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    unimplemented!()
+}

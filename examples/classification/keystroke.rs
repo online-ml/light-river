@@ -6,25 +6,33 @@ use light_river::metrics::rocauc::ROCAUC;
 use light_river::metrics::traits::ClassificationMetric;
 use light_river::stream::data_stream::DataStream;
 use light_river::stream::iter_csv::IterCsv;
+use std::borrow::Borrow;
 use std::fs::File;
 use std::time::Instant;
 
-fn main() {
-    let now = Instant::now();
+/// Get list of features of the dataset.
+///
+/// e.g. features: ["H.e", "UD.t.i", "H.i", ...]
+fn get_features(transactions: IterCsv<f32, File>) -> Vec<String> {
+    // TODO: pass transaction file by reference, in main use only one "Keystroke::load_data().unwrap()"
+    let sample = transactions.into_iter().next();
+    let observation = sample.unwrap().unwrap().get_observation();
+    observation.iter().map(|(k, _)| k.clone()).collect()
+}
 
+fn main() {
+    // DEBUG: remove it
+    let mut counter = 0;
+    let now = Instant::now();
     let window_size: usize = 1000;
     let n_trees: usize = 1;
     let height: usize = 4;
 
-    // TODO: change it, probably they can be taken from "data.get_x" or somewhere there
-    let features = vec!["F1".to_string(), "F2".to_string(), "F3".to_string()];
+    let transactions_f = Keystroke::load_data().unwrap();
+    let features = get_features(transactions_f);
 
-    let mut mt: MondrianTree<f32> = MondrianTree::new(window_size, n_trees, height, features);
+    let mut mt: MondrianTree<f32> = MondrianTree::new(window_size, n_trees, height, &features);
 
-    // DEBUG: remove it
-    let mut counter = 0;
-
-    // LOOP
     let transactions = Keystroke::load_data().unwrap();
     for transaction in transactions {
         let data = transaction.unwrap();
@@ -34,10 +42,10 @@ fn main() {
 
         mt.partial_fit(&x, &y);
 
-        let score = mt.predict_proba(&x, &y);
+        let x_ord: Vec<f32> = features.iter().map(|k| x[k]).collect();
+        let score = mt.predict_proba(&x_ord, &y);
 
-        // println!("=== Score: {:?}", score);
-        println!("");
+        println!("=== Score: {:?}", score);
 
         counter += 1;
         if counter >= 3 {
