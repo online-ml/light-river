@@ -32,7 +32,7 @@ fn main() {
         let score = hst.update(&observation, true, true).unwrap();
         // println!("Label: {:?}", label);
         // println!("Score: {:?}", score);
-        roc_auc.update(&score, &label, Some(1.));
+        // roc_auc.update(&score, &label, Some(1.));
     }
 
     let elapsed_time = now.elapsed();

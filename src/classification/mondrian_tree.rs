@@ -219,7 +219,7 @@ impl<F: FType> MondrianTree<F> {
         // let node = &self.trees.nodes[node_idx];
 
         let mut node_indicies: Vec<usize> = (0..self.n_nodes).collect();
-        // node_indicies.shuffle(&mut self.rng);
+        node_indicies.shuffle(&mut self.rng);
         // println!("node_indicies: {:?}", node_indicies);
 
         // DEBUG: REMOVE IT
@@ -230,8 +230,6 @@ impl<F: FType> MondrianTree<F> {
                 *b += F::from_f32(1.0).unwrap();
             }
         }
-
-        
 
         // Step 1: Calculate the time delta from the parent node.
         // If node is root its time is 0

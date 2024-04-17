@@ -4,10 +4,6 @@ use crate::stream::iter_csv::IterCsv;
 use std::{fs::File, path::Path};
 
 /// CMU keystroke dataset.
-/// # Exemples
-/// ```
-/// ...
-/// ```
 ///
 /// Users are tasked to type in a password. The task is to determine which user is typing in the
 /// password.
