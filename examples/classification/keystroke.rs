@@ -47,13 +47,13 @@ fn main() {
         let x_ord_arr = Array1::<f32>::from_vec(x_ord_vec);
         let score = mt.predict_proba(&x_ord_arr, &y);
 
-        // println!("=== Score: {:?}", score);
-        // println!("");
+        println!("=== Score: {:?}", score);
+        println!("");
 
-        // counter += 1;
-        // if counter >= 3 {
-        //     break;
-        // }
+        counter += 1;
+        if counter >= 3 {
+            break;
+        }
     }
 
     let elapsed_time = now.elapsed();

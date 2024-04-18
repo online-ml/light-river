@@ -1,5 +1,5 @@
 use core::iter::zip;
-use ndarray::{Array, Array1};
+use ndarray::{Array1, Array2};
 use num::pow::Pow;
 use num::traits::float;
 use rand::prelude::*;
@@ -27,24 +27,77 @@ impl<T> FType for T where
 }
 
 /// Stats assocociated to one node
-/// Vecotor are the labels
-struct Stats {
-    sum: Vec<f64>,
-    sq_sum: Vec<f64>,
-    count: Vec<i32>,
+///
+/// In nel215 code it is "Classifier"
+#[derive(Debug, Clone)]
+struct Stats<F> {
+    sums: Array2<F>,
+    sq_sums: Array1<F>,
+    counts: Array1<usize>,
 }
-impl Stats {
-    fn create_result() {
-        unimplemented!()
+impl<F: FType> Stats<F> {
+    fn new(num_labels: usize, feature_dim: usize) -> Self {
+        Stats {
+            sums: Array2::zeros((num_labels, feature_dim)),
+            sq_sums: Array1::zeros(num_labels),
+            counts: Array1::zeros(num_labels),
+        }
     }
-    fn add() {
-        unimplemented!()
+    fn create_result(&self, x: &Array1<F>, w: F) -> ClassifierOutput<F> {
+        // unimplemented!();
+        let probabilities = self.predict_proba(x);
+        let mut results = HashMap::new();
+        for (index, &prob) in probabilities.iter().enumerate() {
+            results.insert(ClassifierTarget::from(index.to_string()), prob * w);
+        }
+        ClassifierOutput::Probabilities(results)
     }
-    fn merge() {
+    fn add(&mut self, x: &Array1<F>, label: usize) {
         unimplemented!()
+        // for (s, &xi) in self.sums[label].iter_mut().zip(x.iter()) {
+        //     *s += xi;
+        // }
+        // self.sq_sums[label] += x.iter().map(|&xi| xi * xi).sum();
+        // self.counts[label] += 1;
     }
-    fn predict_proba() {
+    fn merge(&mut self, other: &Stats<F>) {
         unimplemented!()
+        // for (i, (self_sum, self_sq_sum, self_count)) in self.sums.iter_mut().zip(self.sq_sums.iter_mut()).zip(self.counts.iter_mut()).enumerate() {
+        //     for (s, &o) in self_sum.iter_mut().zip(other.sums[i].iter()) {
+        //         *s += o;
+        //     }
+        //     *self_sq_sum += other.sq_sums[i];
+        //     *self_count += other.counts[i];
+        // }
+    }
+    fn predict_proba(&self, x: &Array1<F>) -> Array1<F> {
+        unimplemented!()
+        // let mut probabilities = Array1::zeros(self.sums.len());
+        // let mut sum_prob = F::zero();
+
+        // for (index, ((sum, &sq_sum), &count)) in self.sums.outer_iter().zip(self.sq_sums.iter()).zip(self.counts.iter()).enumerate() {
+        //     if count > 1 {
+        //         // Check if Array has better functions than these horrible things
+        //         let mean = sum.iter().zip(count.to_f64().unwrap()).map(|(s, c)| *s / F::from(c).unwrap()).collect::<Vec<F>>();
+        //         let var = sq_sum / F::from(count).unwrap() - mean.iter().map(|m| *m * *m).sum::<F>() + F::epsilon();
+        //         let sigma = count.to_f64().unwrap() * var.to_f64().unwrap() / (count.to_f64().unwrap() - F::one() + F::epsilon());
+        //         let norm_factor = (F::from(2.0 * std::f64::consts::PI).unwrap() * F::from(sigma).unwrap()).sqrt();
+        //         let exp_term = x.iter().zip(mean.iter()).map(|(&xi, &mi)| {
+        //             let diff = xi - mi;
+        //             diff * diff / F::from(2.0 * sigma).unwrap()
+        //         }).sum::<F>();
+        //         let prob = (-exp_term).exp() / norm_factor;
+
+        //         probabilities[index] = prob;
+        //         sum_prob += prob;
+        //     }
+        // }
+
+        // for prob in probabilities.iter_mut() {
+        //     *prob /= sum_prob;
+        // }
+
+        // probabilities
     }
 }
 
@@ -53,14 +106,14 @@ impl Stats {
 struct Node<F> {
     parent: Option<usize>,
     tau: F, // Time parameter: updated during 'node creation' or 'node update'
-    is_leaf: bool,
+    is_active: bool,
     min_list: Array1<F>, // Lists representing the minimum and maximum values of the data points contained in the current node
     max_list: Array1<F>,
-    delta: F, // Dimension in which a split occurs (?)
-    xi: F,    // Split point along the dimension specified by delta
+    delta: usize, // Dimension in which a split occurs (?)
+    xi: F,        // Split point along the dimension specified by delta
     left: Option<usize>,
     right: Option<usize>,
-    // stats: Stats, // Ignoring stats for now since it should be a fixed-size array, vector should not work since we are using fixed-size arrays in Trees, but try it out and see what comes out
+    stats: Stats<F>,
 }
 impl<F: FType> Node<F> {
     pub fn update_leaf(&self) {
@@ -77,6 +130,9 @@ impl<F: FType> Node<F> {
         //     Some(_) => parent.tau,
         //     None => F::from_f32(0.0).unwrap(),
         // }
+    }
+    pub fn is_leaf(&self) -> bool {
+        self.left.is_none() && self.right.is_none()
     }
 }
 
@@ -100,18 +156,21 @@ impl<F: FType> Trees<F> {
         let min_list = Array1::<F>::from_vec(min_list_vec);
         let max_list_vec: Vec<F> = features.iter().map(|_| F::from_f32(0.0).unwrap()).collect();
         let max_list = Array1::<F>::from_vec(max_list_vec);
+        // TODO: get this number. 51 is the number of subjects for keystrokes.
+        let num_labels = 51;
+        let feature_dim = features.len();
 
         let node_default = Node::<F> {
             parent: None,
-            tau: F::from_f32(0.33).unwrap(),
-            is_leaf: false,
+            tau: F::zero(),
+            is_active: false,
             min_list,
             max_list,
-            delta: F::from_f32(0.123).unwrap(),
-            xi: F::from_f32(0.456).unwrap(),
+            delta: 0,
+            xi: F::zero(),
             left: None,
             right: None,
-            // stats: Stats::new,
+            stats: Stats::new(num_labels, feature_dim),
         };
         let mut nodes = vec![node_default; n_nodes];
 
@@ -126,7 +185,7 @@ impl<F: FType> Trees<F> {
                 nodes[left_idx].parent = Some(i);
                 nodes[right_idx].parent = Some(i);
             } else {
-                nodes[i].is_leaf = true;
+                nodes[i].is_active = true;
             }
         }
 
@@ -184,7 +243,7 @@ impl<F: FType> MondrianTree<F> {
         x: &Array1<F>,
         y: &ClassifierTarget,
     ) -> ClassifierOutput<F> {
-        self.predict(x, 0, 1.0)
+        self.predict(x, 0, F::one())
     }
 
     fn extend_mondrian_block(&self) {
@@ -214,62 +273,46 @@ impl<F: FType> MondrianTree<F> {
         &mut self,
         x: &Array1<F>,
         node_idx: usize,
-        p_not_separated_yet: f32,
+        p_not_separated_yet: F,
     ) -> ClassifierOutput<F> {
-        // let node = &self.trees.nodes[node_idx];
+        let node = &self.trees.nodes[node_idx];
 
-        let mut node_indicies: Vec<usize> = (0..self.n_nodes).collect();
-        node_indicies.shuffle(&mut self.rng);
-        // println!("node_indicies: {:?}", node_indicies);
-
-        // DEBUG: REMOVE IT
-        for i in node_indicies {
-            let mut tree = &mut self.trees.nodes[i];
-            for (mut a, mut b) in zip(&mut tree.min_list, &mut tree.max_list) {
-                *a += F::from_f32(1.0).unwrap();
-                *b += F::from_f32(1.0).unwrap();
-            }
-        }
-
-        // Step 1: Calculate the time delta from the parent node.
+        // Calculate the time delta from the parent node.
         // If node is root its time is 0
-        // let parent_tau: F = match node.parent {
-        //     Some(_) => self.trees.nodes[node.parent.unwrap()].tau,
-        //     None => F::from_f32(0.0).unwrap(),
-        // };
-        // let d = node.tau - parent_tau;
+        let parent_tau: F = match node.parent {
+            Some(_) => self.trees.nodes[node.parent.unwrap()].tau,
+            None => F::from_f32(0.0).unwrap(),
+        };
+        let d = node.tau - parent_tau;
 
         // Step 2: Compute the distance `eta` of `x` from the node's data boundaries.
         // TODO: test it, I'm 70% sure this works.
-        // let eta_min = (&node.max_list - x).mapv(|v| F::max(v, F::zero()));
-        // let eta_max = (&node.max_list - x).mapv(|v| F::max(v, F::zero()));
-        // let eta = eta_min.sum() + eta_max.sum();
-        // println!("eta_min: {:?}", eta_min);
-        // println!("eta_max: {:?}", eta_max);
-        // println!("eta: {:?}", eta);
+        let eta_min = (&node.max_list - x).mapv(|v| F::max(v, F::zero()));
+        let eta_max = (&node.max_list - x).mapv(|v| F::max(v, F::zero()));
+        let eta = eta_min.sum() + eta_max.sum();
+        println!("eta_min: {:?}", eta_min);
+        println!("eta_max: {:?}", eta_max);
+        println!("eta: {:?}", eta);
 
-        // // Step 3: Calculate the probability `p` of not being separated by new splits.
-        // let p = F::one() - (-d * eta).exp();
+        // Step 3: Calculate the probability `p` of not being separated by new splits.
+        let p = F::one() - (-d * eta).exp();
 
-        // // Step 4: Generate a result for the current node using its statistics.
-        // let result = node.stat.create_result(x, p_not_separated_yet * p);
+        // Step 4: Generate a result for the current node using its statistics.
+        let result = node.stats.create_result(x, p_not_separated_yet * p);
 
-        // // Step 5: If the node is a leaf, calculate the final weight and return the merged result.
-        // if node.is_leaf {
-        //     let w = p_not_separated_yet * (F::one() - p);
-        //     return result.merge(node.stat.create_result(x, w));
-        // }
-
-        // // Step 6: Determine the appropriate child node based on the split condition and recurse.
-        // let child_idx = if x.get(&node.delta) <= Some(&node.xi) {
-        //     node.left.expect("Left child node index missing")
-        // } else {
-        //     node.right.expect("Right child node index missing")
-        // };
-        // let child_result = self._predict(x, child_idx, p_not_separated_yet * (F::one() - p));
-
-        // // Step 7: Merge the results from the current node and its child.
-        // result.merge(child_result)
+        if node.is_leaf() {
+            let w = p_not_separated_yet * (F::one() - p);
+            return result.merge(node.stats.create_result(x, w));
+        } else {
+            let child_idx = if x[node.delta] <= node.xi {
+                node.left
+            } else {
+                node.right
+            };
+            let child_result =
+                self.predict(x, child_idx.unwrap(), p_not_separated_yet * (F::one() - p));
+            return result.merge(child_result);
+        }
 
         ClassifierOutput::Probabilities(HashMap::from([(
             ClassifierTarget::from("target-example"),
