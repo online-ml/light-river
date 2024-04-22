@@ -18,7 +18,7 @@ jobs:
     
     # Setup Rust toolchain
     - name: Set up Rust
-      uses: actions-rs/toolchain@v1
+      uses: actions-rs/toolchain@v2
       with:
         profile: minimal
         toolchain: stable

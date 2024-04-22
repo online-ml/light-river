@@ -1,3 +1,5 @@
+use light_river::classification::alias::FType;
+use light_river::classification::mondrian_forest::MondrianForest;
 use light_river::classification::mondrian_tree::MondrianTree;
 use light_river::common::ClassifierOutput;
 use light_river::common::ClassifierTarget;
@@ -27,12 +29,11 @@ fn main() {
     let now = Instant::now();
     let window_size: usize = 1000;
     let n_trees: usize = 1;
-    let height: usize = 10;
 
     let transactions_f = Keystroke::load_data().unwrap();
     let features = get_features(transactions_f);
 
-    let mut mt: MondrianTree<f32> = MondrianTree::new(window_size, n_trees, height, &features);
+    let mut mf: MondrianForest<f32> = MondrianForest::new(window_size, n_trees, &features);
 
     let transactions = Keystroke::load_data().unwrap();
     for transaction in transactions {
@@ -41,11 +42,11 @@ fn main() {
         let x = data.get_observation();
         let y = data.to_classifier_target("subject").unwrap();
 
-        mt.partial_fit(&x, &y);
+        mf.partial_fit(&x, &y);
 
         let x_ord_vec: Vec<f32> = features.iter().map(|k| x[k]).collect();
         let x_ord_arr = Array1::<f32>::from_vec(x_ord_vec);
-        let score = mt.predict_proba(&x_ord_arr, &y);
+        let score = mf.predict_proba(&x_ord_arr, &y);
 
         println!("=== Score: {:?}", score);
         println!("");
