@@ -14,6 +14,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::env::consts;
+use std::fmt;
 use std::iter::FlatMap;
 use std::ops::{Add, Div, Mul, Sub};
 use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
@@ -30,6 +31,17 @@ pub struct MondrianTree<F: FType> {
     first_learn: bool,
     nodes: Vec<Node<F>>,
 }
+impl<F: FType + fmt::Display> fmt::Display for MondrianTree<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f)?;
+        writeln!(f, "| MondrianTree: window_size: {}", self.window_size)?;
+        for (i, node) in self.nodes.iter().enumerate() {
+            write!(f, "| Node {}: left = {:?}, right = {:?}, parent = {:?}, tau = {}, is_leaf = {}, min = {:?}, max = {:?}", i, node.left, node.right, node.parent, node.tau,  node.is_leaf, node.min_list.to_vec(), node.max_list.to_vec())?;
+            writeln!(f)?;
+        }
+        Ok(())
+    }
+}
 impl<F: FType> MondrianTree<F> {
     pub fn new(window_size: usize, features: &Vec<String>, labels: &Vec<String>) -> Self {
         let mut rng = rand::thread_rng();
@@ -44,13 +56,14 @@ impl<F: FType> MondrianTree<F> {
         }
     }
 
-    fn create_leaf(&mut self, x: &Array1<F>, label: &ClassifierTarget, parent: Option<usize>) {
+    fn create_leaf(&mut self, x: &Array1<F>, label: &String, parent: Option<usize>) {
         let min_list: ArrayBase<ndarray::OwnedRepr<F>, Dim<[usize; 1]>> =
             Array1::zeros(self.features.len());
         let max_list = Array1::zeros(self.features.len());
 
         let num_labels = self.labels.len();
         let feature_dim = self.features.len();
+        let labels = self.labels.clone();
 
         let mut node = Node::<F> {
             parent,
@@ -64,19 +77,21 @@ impl<F: FType> MondrianTree<F> {
             right: None,
             stats: Stats::new(num_labels, feature_dim),
         };
-        node.update_leaf(x, label);
+        // TODO: check if this works:
+        // classes: ["s002", "s003", "s004"]
+        let label_idx = labels.iter().position(|l| l == label).unwrap();
+        node.update_leaf(x, label_idx);
         self.nodes.push(node);
     }
 
     /// Note: In Nel215 codebase should work on multiple records, here it's
     /// working only on one, so it's the same as "predict()".
     pub fn predict_proba(&self, x: &Array1<F>) -> ClassifierOutput<F> {
-        unimplemented!("Must fix first 'fit' to create the root node.");
         let root = &self.nodes[0];
         self.predict(x, root, F::one())
     }
 
-    fn extend_mondrian_block(&self, node: &Node<F>, x: &Array1<F>, label: &ClassifierTarget) {
+    fn extend_mondrian_block(&self, node: &Node<F>, x: &Array1<F>, label: &String) {
         println!("=== extend_mondrian_block not implemented")
     }
 
@@ -84,7 +99,7 @@ impl<F: FType> MondrianTree<F> {
     /// working only on one.
     ///
     /// Function in River/LightRiver: "learn_one()"
-    pub fn partial_fit(&mut self, x: &Array1<F>, y: &ClassifierTarget) {
+    pub fn partial_fit(&mut self, x: &Array1<F>, y: &String) {
         if self.nodes.len() == 0 {
             self.create_leaf(x, y, None);
         } else {
@@ -93,7 +108,7 @@ impl<F: FType> MondrianTree<F> {
     }
 
     fn fit(&self) {
-        unimplemented!()
+        unimplemented!("Make the program first work with 'partial_fit', then implement this")
     }
 
     /// Function in River/LightRiver: "score_one()"
@@ -107,13 +122,15 @@ impl<F: FType> MondrianTree<F> {
     ) -> ClassifierOutput<F> {
         println!("Node: {node:?}");
 
-        // // Calculate the time delta from the parent node.
-        // // If node is root its time is 0
-        // let parent_tau: F = match node.parent {
-        //     Some(_) => self.nodes[node.parent.unwrap()].tau,
-        //     None => F::from_f32(0.0).unwrap(),
-        // };
-        // let d = node.tau - parent_tau;
+        println!("predict_proba() - MondrianTree: {}", self);
+
+        // Calculate the time delta from the parent node.
+        // If node is root its time is 0
+        let parent_tau: F = match node.parent {
+            Some(p) => self.nodes[p].tau,
+            None => F::from_f32(0.0).unwrap(),
+        };
+        let d = node.tau - parent_tau;
 
         // // Step 2: Compute the distance `eta` of `x` from the node's data boundaries.
         // // TODO: test it, I'm 70% sure this works.
@@ -147,7 +164,8 @@ impl<F: FType> MondrianTree<F> {
         ClassifierOutput::Probabilities(HashMap::from([(
             ClassifierTarget::from("target-example"),
             F::one(),
-        )]))
+        )]));
+        unimplemented!("Finish uncommenting all the functions");
     }
 
     fn get_params(&self) {

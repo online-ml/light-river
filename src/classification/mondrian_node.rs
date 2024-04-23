@@ -13,6 +13,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::env::consts;
+use std::fmt;
 use std::iter::FlatMap;
 use std::ops::{Add, Div, Mul, Sub};
 use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
@@ -36,8 +37,8 @@ pub struct Node<F> {
     pub stats: Stats<F>,
 }
 impl<F: FType> Node<F> {
-    pub fn update_leaf(&mut self, x: &Array1<F>, label: &ClassifierTarget) {
-        self.stats.add(x, label);
+    pub fn update_leaf(&mut self, x: &Array1<F>, label_idx: usize) {
+        self.stats.add(x, label_idx);
     }
     pub fn update_internal(&self) {
         unimplemented!()
@@ -59,14 +60,14 @@ impl<F: FType> Node<F> {
 #[derive(Debug, Clone)]
 pub struct Stats<F> {
     sums: Array2<F>,
-    sq_sums: Array1<F>,
+    sq_sums: Array2<F>,
     counts: Array1<usize>,
 }
 impl<F: FType> Stats<F> {
     pub fn new(num_labels: usize, feature_dim: usize) -> Self {
         Stats {
             sums: Array2::zeros((num_labels, feature_dim)),
-            sq_sums: Array1::zeros(num_labels),
+            sq_sums: Array2::zeros((num_labels, feature_dim)),
             counts: Array1::zeros(num_labels),
         }
     }
@@ -79,14 +80,22 @@ impl<F: FType> Stats<F> {
         }
         ClassifierOutput::Probabilities(results)
     }
-    fn add(&mut self, x: &Array1<F>, label: &ClassifierTarget) {
-        println!("mondrian-node::add() - x: {:?} - {label:?}", x.to_vec());
-        unimplemented!("Check nel215 add() implementation, check if these actions are supported by 'Array1' instead of this ugly code.");
-        // for (s, &xi) in self.sums[label].iter_mut().zip(x.iter()) {
-        //     *s += xi;
-        // }
-        // self.sq_sums[label] += x.iter().map(|&xi| xi * xi).sum();
-        // self.counts[label] += 1;
+    fn add(&mut self, x: &Array1<F>, label_idx: usize) {
+        println!("");
+        println!("mondrian-node::add() - x: {:?}", x.to_vec());
+
+        // Same as: self.sums[label] += x;
+        self.sums
+            .row_mut(label_idx)
+            .zip_mut_with(&x, |a, &b| *a += b);
+
+        // Same as: self.sq_sums[label_idx] += x*x;
+        // e.g. x: [1.059 0.580] -> x*x: [1.122  0.337]
+        self.sq_sums
+            .row_mut(label_idx)
+            .zip_mut_with(&x, |a, &b| *a += b * b);
+
+        self.counts[label_idx] += 1;
     }
     fn merge(&mut self, other: &Stats<F>) {
         unimplemented!()

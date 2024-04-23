@@ -61,7 +61,12 @@ fn main() {
 
         let x = data.get_observation();
         let y = data.to_classifier_target("subject").unwrap();
-
+        // TODO: generalize to non-classification only by implementing 'ClassifierTarget'
+        // instead of taking directly the string.
+        let y = match y {
+            ClassifierTarget::String(y) => y,
+            _ => unimplemented!(),
+        };
         let mut x_ord = Array1::<f32>::from_vec(features.iter().map(|k| x[k]).collect());
         // DEBUG: remove it
         x_ord = x_ord.slice(s![0..2]).to_owned();
