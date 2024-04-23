@@ -43,7 +43,7 @@ impl<F: FType> MondrianForest<F> {
     ///
     /// Function in River/LightRiver: "learn_one()"
     pub fn partial_fit(&mut self, x: &Array1<F>, y: &String) {
-        println!("x: {x:?}, y: {y:?}");
+        println!("partial_fit() - x: {:?}, y: {y:?}", x.to_vec());
         for tree in &mut self.trees {
             tree.partial_fit(x, y);
         }

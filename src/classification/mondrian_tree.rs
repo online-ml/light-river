@@ -34,10 +34,11 @@ pub struct MondrianTree<F: FType> {
 impl<F: FType + fmt::Display> fmt::Display for MondrianTree<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f)?;
-        writeln!(f, "| MondrianTree: window_size: {}", self.window_size)?;
+        writeln!(f, "┌ MondrianTree")?;
+        write!(f, "│ window_size: {}", self.window_size)?;
         for (i, node) in self.nodes.iter().enumerate() {
-            write!(f, "| Node {}: left = {:?}, right = {:?}, parent = {:?}, tau = {}, is_leaf = {}, min = {:?}, max = {:?}", i, node.left, node.right, node.parent, node.tau,  node.is_leaf, node.min_list.to_vec(), node.max_list.to_vec())?;
             writeln!(f)?;
+            write!(f, "│ │ Node {}: left = {:?}, right = {:?}, parent = {:?}, tau = {}, is_leaf = {}, min = {:?}, max = {:?}", i, node.left, node.right, node.parent, node.tau,  node.is_leaf, node.min_list.to_vec(), node.max_list.to_vec())?;
         }
         Ok(())
     }
@@ -78,7 +79,7 @@ impl<F: FType> MondrianTree<F> {
             stats: Stats::new(num_labels, feature_dim),
         };
         // TODO: check if this works:
-        // classes: ["s002", "s003", "s004"]
+        // labels: ["s002", "s003", "s004"]
         let label_idx = labels.iter().position(|l| l == label).unwrap();
         node.update_leaf(x, label_idx);
         self.nodes.push(node);
@@ -120,33 +121,37 @@ impl<F: FType> MondrianTree<F> {
         node: &Node<F>,
         p_not_separated_yet: F,
     ) -> ClassifierOutput<F> {
-        println!("Node: {node:?}");
-
+        // println!("Node: {node:?}");
         println!("predict_proba() - MondrianTree: {}", self);
 
-        // Calculate the time delta from the parent node.
+        // Step 1: Calculate the time delta from the parent node.
         // If node is root its time is 0
         let parent_tau: F = match node.parent {
             Some(p) => self.nodes[p].tau,
-            None => F::from_f32(0.0).unwrap(),
+            None => F::zero(),
         };
         let d = node.tau - parent_tau;
 
-        // // Step 2: Compute the distance `eta` of `x` from the node's data boundaries.
-        // // TODO: test it, I'm 70% sure this works.
-        // let eta_min = (&node.max_list - x).mapv(|v| F::max(v, F::zero()));
-        // let eta_max = (&node.max_list - x).mapv(|v| F::max(v, F::zero()));
-        // let eta = eta_min.sum() + eta_max.sum();
-        // println!("eta_min: {:?}", eta_min);
-        // println!("eta_max: {:?}", eta_max);
-        // println!("eta: {:?}", eta);
+        // Step 2: If 'x' is outside the box, calculate distance of 'x' from the box
+        let dist_max = (x - &node.max_list).mapv(|v| F::max(v, F::zero()));
+        let dist_min = (&node.min_list - x).mapv(|v| F::max(v, F::zero()));
+        let eta = dist_min.sum() + dist_max.sum();
+        // TODO: it works, but check again once 'max_list' and 'min_list' are not 0s
+        // println!("x: {:?}, node.max_list {:?}, max(max_list) {:?}, node.min_list {:?}, max(min_list) {:?}",
+        //  x.to_vec(), node.max_list.to_vec(), dist_max.to_vec(), node.min_list.to_vec(), dist_min.to_vec());
 
-        // // Step 3: Calculate the probability `p` of not being separated by new splits.
-        // let p = F::one() - (-d * eta).exp();
+        // Step 3: Probability 'p' of the box not splitting.
+        //     eta (box dist): larger distance, more prob of splitting
+        //     d (time diff with parent): more dist with parent, more prob of splitting
+        let p = F::one() - (-d * eta).exp();
 
-        // // Step 4: Generate a result for the current node using its statistics.
-        // let result = node.stats.create_result(x, p_not_separated_yet * p);
+        // Step 4: Generate a result for the current node using its statistics.
+        let result = node.stats.create_result(x, p_not_separated_yet * p);
 
+        println!(
+            "predict() - result: {:?}, p_not_separated_yet: {:?}, p: {:?}",
+            result, p_not_separated_yet, p
+        );
         // if node.is_leaf() {
         //     let w = p_not_separated_yet * (F::one() - p);
         //     return result.merge(node.stats.create_result(x, w));

@@ -22,7 +22,7 @@ use std::rc::Weak;
 use std::{clone, cmp, mem, usize};
 
 /// Node struct
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Node<F> {
     // Change 'Rc' to 'Weak'
     pub parent: Option<usize>, // Option<Rc<RefCell<Node<F>>>>,
@@ -57,11 +57,32 @@ impl<F: FType> Node<F> {
 /// Stats assocociated to one node
 ///
 /// In nel215 code it is "Classifier"
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Stats<F> {
     sums: Array2<F>,
     sq_sums: Array2<F>,
     counts: Array1<usize>,
+    num_labels: usize,
+}
+impl<F: FType + fmt::Display> fmt::Display for Stats<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "┌ Stats")?;
+        // sums
+        write!(f, "│ sums: [")?;
+        for row in self.sums.outer_iter() {
+            write!(f, "{:?}, ", row.to_vec())?;
+        }
+        writeln!(f, "]")?;
+        // sq_sums
+        write!(f, "│ sq_sums: [")?;
+        for row in self.sq_sums.outer_iter() {
+            write!(f, "{:?}, ", row.to_vec())?;
+        }
+        writeln!(f, "]")?;
+        // count
+        write!(f, "└ counts: {}", self.counts)?;
+        Ok(())
+    }
 }
 impl<F: FType> Stats<F> {
     pub fn new(num_labels: usize, feature_dim: usize) -> Self {
@@ -69,11 +90,12 @@ impl<F: FType> Stats<F> {
             sums: Array2::zeros((num_labels, feature_dim)),
             sq_sums: Array2::zeros((num_labels, feature_dim)),
             counts: Array1::zeros(num_labels),
+            num_labels,
         }
     }
-    fn create_result(&self, x: &Array1<F>, w: F) -> ClassifierOutput<F> {
-        // unimplemented!();
+    pub fn create_result(&self, x: &Array1<F>, w: F) -> ClassifierOutput<F> {
         let probabilities = self.predict_proba(x);
+        unimplemented!("Fix first predict_proba()");
         let mut results = HashMap::new();
         for (index, &prob) in probabilities.iter().enumerate() {
             results.insert(ClassifierTarget::from(index.to_string()), prob * w);
@@ -81,9 +103,6 @@ impl<F: FType> Stats<F> {
         ClassifierOutput::Probabilities(results)
     }
     fn add(&mut self, x: &Array1<F>, label_idx: usize) {
-        println!("");
-        println!("mondrian-node::add() - x: {:?}", x.to_vec());
-
         // Same as: self.sums[label] += x;
         self.sums
             .row_mut(label_idx)
@@ -108,36 +127,44 @@ impl<F: FType> Stats<F> {
         // }
     }
     fn predict_proba(&self, x: &Array1<F>) -> Array1<F> {
-        let mut probabilities = Array1::zeros(self.sums.len());
+        let mut probs = Array1::zeros(self.num_labels);
         let mut sum_prob = F::zero();
+        println!("{self}");
 
-        // // for (index, ((sum, &sq_sum), &count)) in self.sums.outer_iter().zip(self.sq_sums.iter()).zip(self.counts.iter()).enumerate() {
-        // for (index, ((sum, sq_sum), &count)) in self.sums.outer_iter().zip(self.sq_sums.iter()).zip(self.counts.iter()).enumerate() {
-        //     if count > 1 {
-        //         let count_f = F::from_usize(count).unwrap(); // Making sure the type is correct
-        //         let mean = &sum / count_f;  // This division should work if sum is an Array1<F>
-        //         let variance = (*sq_sum / count_f) - (&mean * &mean) + F::epsilon();
-        //         let sigma = count_f * variance / (count_f - F::one() + F::epsilon());
-        //         let norm_factor = ((2.0 * std::f64::consts::PI * sigma).sqrt());
+        for (index, ((sum, sq_sum), &count)) in self
+            .sums
+            .outer_iter()
+            .zip(self.sq_sums.outer_iter())
+            .zip(self.counts.iter())
+            .enumerate()
+        {
+            // TODO (from nel215): case that var is 0 and count <= 1
+            let count_f = F::from_usize(count).unwrap();
+            let mean = &sum / count_f;
+            let var = (&sq_sum / count_f) - (&mean * &mean); //  + F::epsilon()
+            let sigma = (&var * count_f) / (count_f - F::one() + F::epsilon());
+            let pi = F::from_f32(std::f32::consts::PI).unwrap();
+            unimplemented!("Uncomment everything below and start from fixing z, z below is very different than nel215");
+            // let z = ((2.0 * pi * sigma).sqrt());
+            // let exp_term = x
+            //     .iter()
+            //     .zip(mean.iter())
+            //     .map(|(&xi, &mi)| {
+            //         let diff = xi - mi;
+            //         (diff * diff) / (2.0 * sigma)
+            //     })
+            //     .sum::<f64>();
 
-        //         let exp_term = x.iter()
-        //             .zip(mean.iter())
-        //             .map(|(&xi, &mi)| {
-        //                 let diff = xi - mi;
-        //                 (diff * diff) / (2.0 * sigma)
-        //             })
-        //             .sum::<f64>();
+            // let prob = (-exp_term).exp() / z;
+            // probs[index] = prob;
+            // sum_prob += prob;
+        }
 
-        //         let prob = (-exp_term).exp() / norm_factor;
-        //         probabilities[index] = prob;
-        //         sum_prob += prob;
-        //         }
-        // }
-
-        for prob in probabilities.iter_mut() {
+        for prob in probs.iter_mut() {
             *prob /= sum_prob;
         }
 
-        probabilities
+        unimplemented!("Finish uncommenting predict_proba()");
+        probs
     }
 }

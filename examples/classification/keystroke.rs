@@ -23,17 +23,17 @@ fn get_features(transactions: IterCsv<f32, File>) -> Vec<String> {
     observation.iter().map(|(k, _)| k.clone()).collect()
 }
 
-fn get_classes(transactions: IterCsv<f32, File>) -> Vec<String> {
-    let mut classes = vec![];
+fn get_labels(transactions: IterCsv<f32, File>) -> Vec<String> {
+    let mut labels = vec![];
     for t in transactions {
         let data = t.unwrap();
         // TODO: use instead 'to_classifier_target' and a vector of 'ClassifierTarget'
         let target = data.get_y().unwrap()["subject"].to_string();
-        if !classes.contains(&target) {
-            classes.push(target);
+        if !labels.contains(&target) {
+            labels.push(target);
         }
     }
-    classes
+    labels
 }
 
 fn main() {
@@ -49,11 +49,10 @@ fn main() {
     features = features[0..2].to_vec();
 
     let transactions_c = Keystroke::load_data().unwrap();
-    let mut classes = get_classes(transactions_c);
-    classes = classes[0..3].to_vec();
-    println!("classes: {classes:?}");
-    let mut mf: MondrianForest<f32> =
-        MondrianForest::new(window_size, n_trees, &features, &classes);
+    let mut labels = get_labels(transactions_c);
+    labels = labels[0..3].to_vec();
+    println!("labels: {labels:?}");
+    let mut mf: MondrianForest<f32> = MondrianForest::new(window_size, n_trees, &features, &labels);
 
     let transactions = Keystroke::load_data().unwrap();
     for transaction in transactions {
