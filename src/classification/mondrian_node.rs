@@ -2,7 +2,7 @@ use crate::classification::alias::FType;
 use crate::common::{ClassifierOutput, ClassifierTarget, Observation};
 use crate::stream::data_stream::Data;
 use core::iter::zip;
-use ndarray::array;
+use ndarray::{array, Array3};
 use ndarray::{Array1, Array2};
 use ndarray::{ArrayBase, Dim, ScalarOperand, ViewRepr};
 use num::pow::Pow;
@@ -23,20 +23,21 @@ use std::{clone, cmp, mem, usize};
 /// Node struct
 #[derive(Debug, Clone)]
 pub struct Node<F> {
-    pub parent: Option<Weak<RefCell<Node<F>>>>,
-    pub tau: F, // Time parameter: updated during 'node creation' or 'node update'
+    // Change 'Rc' to 'Weak'
+    pub parent: Option<usize>, // Option<Rc<RefCell<Node<F>>>>,
+    pub tau: F,                // Time parameter: updated during 'node creation' or 'node update'
     pub is_leaf: bool,
     pub min_list: Array1<F>, // Lists representing the minimum and maximum values of the data points contained in the current node
     pub max_list: Array1<F>,
-    pub delta: usize, // Dimension in which a split occurs (?)
-    pub xi: F,        // Split point along the dimension specified by delta
-    pub left: Option<Rc<RefCell<Node<F>>>>,
-    pub right: Option<Rc<RefCell<Node<F>>>>,
+    pub delta: usize,         // Dimension in which a split occurs (?)
+    pub xi: F,                // Split point along the dimension specified by delta
+    pub left: Option<usize>,  // Option<Rc<RefCell<Node<F>>>>,
+    pub right: Option<usize>, // Option<Rc<RefCell<Node<F>>>>,
     pub stats: Stats<F>,
 }
 impl<F: FType> Node<F> {
-    pub fn update_leaf(&self) {
-        unimplemented!()
+    pub fn update_leaf(&mut self, x: &Array1<F>, label: &ClassifierTarget) {
+        self.stats.add(x, label);
     }
     pub fn update_internal(&self) {
         unimplemented!()
@@ -78,8 +79,9 @@ impl<F: FType> Stats<F> {
         }
         ClassifierOutput::Probabilities(results)
     }
-    fn add(&mut self, x: &Array1<F>, label: usize) {
-        unimplemented!()
+    fn add(&mut self, x: &Array1<F>, label: &ClassifierTarget) {
+        println!("mondrian-node::add() - x: {:?} - {label:?}", x.to_vec());
+        unimplemented!("Check nel215 add() implementation, check if these actions are supported by 'Array1' instead of this ugly code.");
         // for (s, &xi) in self.sums[label].iter_mut().zip(x.iter()) {
         //     *s += xi;
         // }

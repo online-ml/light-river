@@ -22,24 +22,40 @@ use std::rc::Weak;
 use std::{clone, cmp, mem, usize};
 
 #[derive(Clone)]
-struct Tree<F: FType> {
+pub struct MondrianTree<F: FType> {
+    window_size: usize,
+    features: Vec<String>,
+    labels: Vec<String>,
+    rng: ThreadRng,
+    first_learn: bool,
     nodes: Vec<Node<F>>,
 }
-impl<F: FType> Tree<F> {
-    fn new(features: &Vec<String>, rng: &mut ThreadRng) -> Self {
-        let min_list = Array1::zeros(features.len());
-        let max_list = Array1::zeros(features.len());
+impl<F: FType> MondrianTree<F> {
+    pub fn new(window_size: usize, features: &Vec<String>, labels: &Vec<String>) -> Self {
+        let mut rng = rand::thread_rng();
+        let nodes = vec![];
+        MondrianTree::<F> {
+            window_size,
+            features: features.clone(),
+            labels: labels.clone(),
+            rng,
+            first_learn: false,
+            nodes,
+        }
+    }
 
-        println!("min_list {min_list:?}");
+    fn create_leaf(&mut self, x: &Array1<F>, label: &ClassifierTarget, parent: Option<usize>) {
+        let min_list: ArrayBase<ndarray::OwnedRepr<F>, Dim<[usize; 1]>> =
+            Array1::zeros(self.features.len());
+        let max_list = Array1::zeros(self.features.len());
 
-        // TODO: get this number. 51 is the number of subjects for keystrokes.
-        let num_labels = 51;
-        let feature_dim = features.len();
+        let num_labels = self.labels.len();
+        let feature_dim = self.features.len();
 
-        let node_default = Node::<F> {
-            parent: None,
-            tau: F::zero(),
-            is_leaf: false,
+        let mut node = Node::<F> {
+            parent,
+            tau: F::from(1e9).unwrap(), // Very large value for tau
+            is_leaf: true,
             min_list,
             max_list,
             delta: 0,
@@ -48,50 +64,19 @@ impl<F: FType> Tree<F> {
             right: None,
             stats: Stats::new(num_labels, feature_dim),
         };
-        let mut nodes = vec![node_default];
-
-        Tree { nodes }
-    }
-}
-
-#[derive(Clone)]
-pub struct MondrianTree<F: FType> {
-    window_size: usize,
-    features: Vec<String>,
-    rng: ThreadRng,
-    tree: Tree<F>,
-    first_learn: bool,
-}
-impl<F: FType> MondrianTree<F> {
-    pub fn new(window_size: usize, features: &Vec<String>) -> Self {
-        let features_clone = features.clone();
-        let mut rng = rand::thread_rng();
-        let mut tree = Tree::new(&features, &mut rng);
-        MondrianTree::<F> {
-            window_size,
-            features: features_clone,
-            rng,
-            tree,
-            first_learn: false,
-        }
-    }
-
-    fn create_leaf(&self) {
-        unimplemented!()
+        node.update_leaf(x, label);
+        self.nodes.push(node);
     }
 
     /// Note: In Nel215 codebase should work on multiple records, here it's
     /// working only on one, so it's the same as "predict()".
-    pub fn predict_proba(
-        &self,
-        // x: &HashMap<String, f32>,
-        x: &Array1<F>,
-        y: &ClassifierTarget,
-    ) -> ClassifierOutput<F> {
-        self.predict(x, 0, F::one())
+    pub fn predict_proba(&self, x: &Array1<F>) -> ClassifierOutput<F> {
+        unimplemented!("Must fix first 'fit' to create the root node.");
+        let root = &self.nodes[0];
+        self.predict(x, root, F::one())
     }
 
-    fn extend_mondrian_block(&self) {
+    fn extend_mondrian_block(&self, node: &Node<F>, x: &Array1<F>, label: &ClassifierTarget) {
         println!("=== extend_mondrian_block not implemented")
     }
 
@@ -99,9 +84,12 @@ impl<F: FType> MondrianTree<F> {
     /// working only on one.
     ///
     /// Function in River/LightRiver: "learn_one()"
-    pub fn partial_fit(&mut self, x: &HashMap<String, f32>, y: &ClassifierTarget) {
-        // No need to check if node is root, the full tree is already built
-        self.extend_mondrian_block();
+    pub fn partial_fit(&mut self, x: &Array1<F>, y: &ClassifierTarget) {
+        if self.nodes.len() == 0 {
+            self.create_leaf(x, y, None);
+        } else {
+            self.extend_mondrian_block(&self.nodes[0], x, y);
+        }
     }
 
     fn fit(&self) {
@@ -111,21 +99,18 @@ impl<F: FType> MondrianTree<F> {
     /// Function in River/LightRiver: "score_one()"
     ///
     /// Recursive function to predict probabilities.
-    /// - `x`: Input data.
-    /// - `node_idx`: Current node index in the tree.
-    /// - `p_not_separated_yet`: Probability that `x` has not been separated by any split in the tree up to this node.
     fn predict(
         &self,
         x: &Array1<F>,
-        node_idx: usize,
+        node: &Node<F>,
         p_not_separated_yet: F,
     ) -> ClassifierOutput<F> {
-        let node = &self.tree.nodes[node_idx];
+        println!("Node: {node:?}");
 
         // // Calculate the time delta from the parent node.
         // // If node is root its time is 0
         // let parent_tau: F = match node.parent {
-        //     Some(_) => self.tree.nodes[node.parent.unwrap()].tau,
+        //     Some(_) => self.nodes[node.parent.unwrap()].tau,
         //     None => F::from_f32(0.0).unwrap(),
         // };
         // let d = node.tau - parent_tau;

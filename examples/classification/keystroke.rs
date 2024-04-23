@@ -8,7 +8,7 @@ use light_river::metrics::rocauc::ROCAUC;
 use light_river::metrics::traits::ClassificationMetric;
 use light_river::stream::data_stream::DataStream;
 use light_river::stream::iter_csv::IterCsv;
-use ndarray::Array1;
+use ndarray::{s, Array1};
 use std::borrow::Borrow;
 use std::fs::File;
 use std::time::Instant;
@@ -23,6 +23,19 @@ fn get_features(transactions: IterCsv<f32, File>) -> Vec<String> {
     observation.iter().map(|(k, _)| k.clone()).collect()
 }
 
+fn get_classes(transactions: IterCsv<f32, File>) -> Vec<String> {
+    let mut classes = vec![];
+    for t in transactions {
+        let data = t.unwrap();
+        // TODO: use instead 'to_classifier_target' and a vector of 'ClassifierTarget'
+        let target = data.get_y().unwrap()["subject"].to_string();
+        if !classes.contains(&target) {
+            classes.push(target);
+        }
+    }
+    classes
+}
+
 fn main() {
     // DEBUG: remove it
     let mut counter = 0;
@@ -31,9 +44,16 @@ fn main() {
     let n_trees: usize = 1;
 
     let transactions_f = Keystroke::load_data().unwrap();
-    let features = get_features(transactions_f);
+    let mut features = get_features(transactions_f);
+    // DEBUG: remove it
+    features = features[0..2].to_vec();
 
-    let mut mf: MondrianForest<f32> = MondrianForest::new(window_size, n_trees, &features);
+    let transactions_c = Keystroke::load_data().unwrap();
+    let mut classes = get_classes(transactions_c);
+    classes = classes[0..3].to_vec();
+    println!("classes: {classes:?}");
+    let mut mf: MondrianForest<f32> =
+        MondrianForest::new(window_size, n_trees, &features, &classes);
 
     let transactions = Keystroke::load_data().unwrap();
     for transaction in transactions {
@@ -42,13 +62,15 @@ fn main() {
         let x = data.get_observation();
         let y = data.to_classifier_target("subject").unwrap();
 
-        mf.partial_fit(&x, &y);
+        let mut x_ord = Array1::<f32>::from_vec(features.iter().map(|k| x[k]).collect());
+        // DEBUG: remove it
+        x_ord = x_ord.slice(s![0..2]).to_owned();
 
-        let x_ord_vec: Vec<f32> = features.iter().map(|k| x[k]).collect();
-        let x_ord_arr = Array1::<f32>::from_vec(x_ord_vec);
-        let score = mf.predict_proba(&x_ord_arr, &y);
+        mf.partial_fit(&x_ord, &y);
 
-        println!("=== Score: {:?}", score);
+        let score = mf.predict_proba(&x_ord);
+
+        println!("=== score:: {:?}", score);
         println!("");
 
         counter += 1;
