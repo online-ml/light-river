@@ -147,11 +147,17 @@ impl<F: FType> MondrianTree<F> {
 
         // Step 4: Generate a result for the current node using its statistics.
         let result = node.stats.create_result(x, p_not_separated_yet * p);
-
+        // Shadowing with bogous values
+        let result = Array1::from_vec(vec![
+            F::from_f32(0.7).unwrap(),
+            F::from_f32(0.2).unwrap(),
+            F::from_f32(0.1).unwrap(),
+        ]);
         println!(
             "predict() - result: {:?}, p_not_separated_yet: {:?}, p: {:?}",
             result, p_not_separated_yet, p
         );
+
         // if node.is_leaf() {
         //     let w = p_not_separated_yet * (F::one() - p);
         //     return result.merge(node.stats.create_result(x, w));
