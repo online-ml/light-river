@@ -53,31 +53,24 @@ impl<F: FType> MondrianForest<F> {
         unimplemented!()
     }
 
-    pub fn predict_proba(&self, x: &Array1<F>) -> F {
+    pub fn predict_proba(&self, x: &Array1<F>) -> Array1<F> {
         // scores shape in nel215: (n_trees, n_samples, n_labels)
-        // scores shape here: (n_trees, n_labels)
-        let mut scores = Array2::<F>::zeros((self.trees.len(), self.labels.len()));
-        for tree_idx in 0..self.trees.len() {
-            let out = self.trees[tree_idx].predict_proba(x);
-            // Sort 'Probabilities' (the HashMap) output labels getting
-            let probs = out.get_probabilities();
-            unimplemented!("Must first fix 'predict_proba' to return probabilities (HashMap) with -> 'class1': 0.1, ...");
-            let probs_sorted: Vec<F> = self
-                .labels
-                .iter()
-                .map(|label| probs[&ClassifierTarget::from(label)])
-                .collect();
+        // scores shape here: (n_trees, n_labels). We are doing one shot learning.
+        let n_trees = self.trees.len();
+        let n_labels = self.labels.len();
 
-            // scores[tree_idx] = probs_sorted;
-            println!("probs {probs:?}");
+        // Initialize an accumulator array for summing probabilities from each tree
+        let mut total_probs = Array1::<F>::zeros(n_labels);
+
+        // Sum probabilities from each tree
+        for tree in &self.trees {
+            let probs = tree.predict_proba(x);
+            total_probs += &probs; // Assuming `probs` is an Array1<F>
         }
-        let mut sum = F::zero();
-        println!("scores: {:?}", scores);
-        // for score in &scores {
-        //     sum += score;
-        // }
-        // sum /= scores.len() as f32;
-        // ClassifierOutput::Prediction(sum)
-        F::one()
+
+        // Average the probabilities by the number of trees
+        total_probs /= F::from_usize(n_trees).unwrap();
+
+        total_probs
     }
 }

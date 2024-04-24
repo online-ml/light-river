@@ -125,7 +125,7 @@ impl<F: FType> Stats<F> {
     ///
     /// e.g. probs: [0.1, 0.2, 0.7]
     ///
-    /// TODO: Remove this example, I was testing if unit tests make sense, but as
+    /// TODO: Remove the assert that check for exact values, I was testing if unit tests make sense, but as
     /// shown below this does not show the error. The function is just too complex.
     ///
     /// # Example
@@ -148,9 +148,13 @@ impl<F: FType> Stats<F> {
     /// let probs = stats.predict_proba(&x);
     /// let expected = vec![0.998075, 0.001924008, 0.0];
     /// assert!(
-    ///     (probs - Array1::from_vec(expected)).mapv(|a: f32| a.abs()).iter().all(|&x| x < 1e-4),
+    ///     (probs.clone() - Array1::from_vec(expected)).mapv(|a: f32| a.abs()).iter().all(|&x| x < 1e-4),
     ///     "Probabilities do not match expected values"
     /// );
+    /// // Check all values inside [0, 1] range
+    /// assert!(probs.clone().iter().all(|&x| x >= 0.0 && x <= 1.0), "Probabilities should be in [0, 1] range");
+    /// // Check sum is 1
+    /// assert!((probs.clone().sum() - 1.0).abs() < 1e-4, "Sum of probabilities should be 1");
     /// ```
     pub fn predict_proba(&self, x: &Array1<F>) -> Array1<F> {
         let mut probs = Array1::zeros(self.num_labels);

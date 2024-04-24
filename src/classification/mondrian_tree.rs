@@ -87,7 +87,7 @@ impl<F: FType> MondrianTree<F> {
 
     /// Note: In Nel215 codebase should work on multiple records, here it's
     /// working only on one, so it's the same as "predict()".
-    pub fn predict_proba(&self, x: &Array1<F>) -> ClassifierOutput<F> {
+    pub fn predict_proba(&self, x: &Array1<F>) -> Array1<F> {
         let root = &self.nodes[0];
         self.predict(x, root, F::one())
     }
@@ -115,12 +115,7 @@ impl<F: FType> MondrianTree<F> {
     /// Function in River/LightRiver: "score_one()"
     ///
     /// Recursive function to predict probabilities.
-    fn predict(
-        &self,
-        x: &Array1<F>,
-        node: &Node<F>,
-        p_not_separated_yet: F,
-    ) -> ClassifierOutput<F> {
+    fn predict(&self, x: &Array1<F>, node: &Node<F>, p_not_separated_yet: F) -> Array1<F> {
         // println!("Node: {node:?}");
         println!("predict_proba() - MondrianTree: {}", self);
 
@@ -136,7 +131,7 @@ impl<F: FType> MondrianTree<F> {
         let dist_max = (x - &node.max_list).mapv(|v| F::max(v, F::zero()));
         let dist_min = (&node.min_list - x).mapv(|v| F::max(v, F::zero()));
         let eta = dist_min.sum() + dist_max.sum();
-        // TODO: it works, but check again once 'max_list' and 'min_list' are not 0s
+        // It works, but check again once 'max_list' and 'min_list' are not 0s
         // println!("x: {:?}, node.max_list {:?}, max(max_list) {:?}, node.min_list {:?}, max(min_list) {:?}",
         //  x.to_vec(), node.max_list.to_vec(), dist_max.to_vec(), node.min_list.to_vec(), dist_min.to_vec());
 
@@ -146,37 +141,42 @@ impl<F: FType> MondrianTree<F> {
         let p = F::one() - (-d * eta).exp();
 
         // Step 4: Generate a result for the current node using its statistics.
-        let result = node.stats.create_result(x, p_not_separated_yet * p);
-        // Shadowing with bogous values
-        let result = Array1::from_vec(vec![
-            F::from_f32(0.7).unwrap(),
-            F::from_f32(0.2).unwrap(),
-            F::from_f32(0.1).unwrap(),
-        ]);
+        let res = node.stats.create_result(x, p_not_separated_yet * p);
+
+        // DEBUG: Shadowing with bogous values since output would be simply [1.0, 0.0, 0.0]
+        // let res = Array1::from_vec(vec![
+        //     F::from_f32(0.7).unwrap(),
+        //     F::from_f32(0.2).unwrap(),
+        //     F::from_f32(0.1).unwrap(),
+        // ]);
+        // let p_not_separated_yet = F::from_f32(0.8).unwrap();
+        // let p = F::from_f32(0.9).unwrap();
+
         println!(
-            "predict() - result: {:?}, p_not_separated_yet: {:?}, p: {:?}",
-            result, p_not_separated_yet, p
+            "predict() - res: {:?}, p_not_separated_yet: {:?}, p: {:?}",
+            res, p_not_separated_yet, p
         );
 
-        // if node.is_leaf() {
-        //     let w = p_not_separated_yet * (F::one() - p);
-        //     return result.merge(node.stats.create_result(x, w));
-        // } else {
-        //     let child_idx = if x[node.delta] <= node.xi {
-        //         node.left
-        //     } else {
-        //         node.right
-        //     };
-        //     let child_result =
-        //         self.predict(x, child_idx.unwrap(), p_not_separated_yet * (F::one() - p));
-        //     return result.merge(child_result);
-        // }
-
-        ClassifierOutput::Probabilities(HashMap::from([(
-            ClassifierTarget::from("target-example"),
-            F::one(),
-        )]));
-        unimplemented!("Finish uncommenting all the functions");
+        if node.is_leaf {
+            let w = p_not_separated_yet * (F::one() - p);
+            let res2 = node.stats.create_result(x, w);
+            // Check sum of probabililties is 1
+            let sum_res = ((&res + &res2).sum() - F::one()).abs();
+            assert!(
+                sum_res < F::from_f32(0.001).unwrap(),
+                "Sum of probs should be 1."
+            );
+            return res + res2;
+        } else {
+            let child_idx = if x[node.delta] <= node.xi {
+                node.left
+            } else {
+                node.right
+            };
+            let node = &self.nodes[child_idx.unwrap()];
+            let child_res = self.predict(x, &node, p_not_separated_yet * (F::one() - p));
+            return res + child_res;
+        }
     }
 
     fn get_params(&self) {
