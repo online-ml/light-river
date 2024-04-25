@@ -40,17 +40,22 @@ impl<F: FType> Node<F> {
     pub fn update_leaf(&mut self, x: &Array1<F>, label_idx: usize) {
         self.stats.add(x, label_idx);
     }
-    pub fn update_internal(&self) {
-        unimplemented!()
+    pub fn update_internal(
+        &self,
+        left_s: Option<&Stats<F>>,
+        right_s: Option<&Stats<F>>,
+    ) -> Stats<F> {
+        match (left_s, right_s) {
+            (Some(left), Some(right)) => left.merge(right),
+            (None, Some(right)) => unimplemented!("uncomment the following"), // right.clone(),
+            (Some(left), None) => unimplemented!("uncomment the following"),  // left.clone(),
+            (None, None) => unimplemented!(
+                "Both left and right stats are None. Should I return simply 'self.stats'?"
+            ),
+        }
     }
-    pub fn get_parent_tau(&self, parent: Option<&Node<F>>) -> F {
-        panic!(
-            "Not implemented, adds a lot of complexity for no reason. Just extract tau directly."
-        )
-        // match self.parent {
-        //     Some(_) => parent.tau,
-        //     None => F::from_f32(0.0).unwrap(),
-        // }
+    pub fn get_parent_tau(&self) -> F {
+        panic!("Implemented in 'mondrian_tree' instead of 'mondrian_node'")
     }
 }
 
@@ -111,15 +116,14 @@ impl<F: FType> Stats<F> {
 
         self.counts[label_idx] += 1;
     }
-    fn merge(&mut self, other: &Stats<F>) {
-        unimplemented!()
-        // for (i, (self_sum, self_sq_sum, self_count)) in self.sums.iter_mut().zip(self.sq_sums.iter_mut()).zip(self.counts.iter_mut()).enumerate() {
-        //     for (s, &o) in self_sum.iter_mut().zip(other.sums[i].iter()) {
-        //         *s += o;
-        //     }
-        //     *self_sq_sum += other.sq_sums[i];
-        //     *self_count += other.counts[i];
-        // }
+    fn merge(&self, s: &Stats<F>) -> Stats<F> {
+        // NOTE: nel215 returns a new Stats object, we are only changing the node values here
+        Stats {
+            sums: self.sums.clone() + &s.sums,
+            sq_sums: self.sq_sums.clone() + &s.sq_sums,
+            counts: self.counts.clone() + &s.counts,
+            num_labels: self.num_labels,
+        }
     }
     /// Return probabilities of sample 'x' belonging to each class.
     ///

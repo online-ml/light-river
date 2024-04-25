@@ -58,7 +58,7 @@ impl<F: FType> MondrianTree<F> {
         }
     }
 
-    fn create_leaf(&mut self, x: &Array1<F>, label: &String, parent: Option<usize>) {
+    fn create_leaf(&mut self, x: &Array1<F>, label: &String, parent: Option<usize>) -> usize {
         let min_list: ArrayBase<ndarray::OwnedRepr<F>, Dim<[usize; 1]>> =
             Array1::zeros(self.features.len());
         let max_list = Array1::zeros(self.features.len());
@@ -84,26 +84,115 @@ impl<F: FType> MondrianTree<F> {
         let label_idx = labels.iter().position(|l| l == label).unwrap();
         node.update_leaf(x, label_idx);
         self.nodes.push(node);
+        let node_idx = self.nodes.len() - 1;
+        node_idx
     }
 
     /// Note: In Nel215 codebase should work on multiple records, here it's
     /// working only on one, so it's the same as "predict()".
     pub fn predict_proba(&self, x: &Array1<F>) -> Array1<F> {
-        let root = &self.nodes[0];
+        let root = 0;
         self.predict(x, root, F::one())
     }
 
     fn extend_mondrian_block(&mut self, node_idx: usize, x: &Array1<F>, label: &String) {
-        // TODO: Check if we access the node somewhere else by reference (&Node).
-        // If so pass it by ref here instead of 'node_idx' so we don't access it twice.
-        let node = &self.nodes[node_idx];
-        let e_min = (&node.min_list - x).mapv(|v| v.max(F::zero()));
-        let e_max = (x - &node.max_list).mapv(|v| v.max(F::zero()));
+        // Collect necessary values for computations
+        let parent_tau = self.get_parent_tau(node_idx);
+        let tau = self.nodes[node_idx].tau;
+        let node_min_list = self.nodes[node_idx].min_list.clone();
+        let node_max_list = self.nodes[node_idx].max_list.clone();
+
+        let e_min = (&node_min_list - x).mapv(|v| F::max(v, F::zero()));
+        let e_max = (x - &node_max_list).mapv(|v| F::max(v, F::zero()));
         let e_sum = &e_min + &e_max;
         let rate = e_sum.sum() + F::epsilon();
         let exp_dist = Exp::new(rate.to_f32().unwrap()).unwrap();
         let E = F::from_f32(exp_dist.sample(&mut self.rng)).unwrap();
-        println!("=== rate: {}, E: {}", rate, E);
+
+        if parent_tau + E < tau {
+            let cumsum = e_sum
+                .iter()
+                .scan(F::zero(), |acc, &x| {
+                    *acc = *acc + x;
+                    Some(*acc)
+                })
+                .collect::<Array1<F>>();
+            let e_sample =
+                F::from_f32(self.rng.gen::<f32>() * e_sum.sum().to_f32().unwrap()).unwrap();
+            let delta = cumsum.iter().position(|&val| val > e_sample).unwrap_or(0);
+            let xi =
+                if x[delta] > node_min_list[delta] {
+                    F::from_f32(self.rng.gen_range(
+                        node_min_list[delta].to_f32().unwrap()..x[delta].to_f32().unwrap(),
+                    ))
+                    .unwrap()
+                } else {
+                    F::from_f32(self.rng.gen_range(
+                        x[delta].to_f32().unwrap()..node_max_list[delta].to_f32().unwrap(),
+                    ))
+                    .unwrap()
+                };
+
+            let mut min_list = node_min_list;
+            let mut max_list = node_max_list;
+            min_list.zip_mut_with(x, |a, &b| *a = F::min(*a, b));
+            max_list.zip_mut_with(x, |a, &b| *a = F::max(*a, b));
+
+            // Create and push new parent node
+            let parent_node = Node {
+                parent: self.nodes[node_idx].parent,
+                tau: parent_tau + E,
+                is_leaf: false,
+                min_list,
+                max_list,
+                delta,
+                xi,
+                left: None,
+                right: None,
+                stats: Stats::new(self.labels.len(), self.features.len()),
+            };
+
+            self.nodes.push(parent_node);
+            let parent_idx = self.nodes.len() - 1;
+            let sibling_idx = self.create_leaf(x, label, Some(parent_idx));
+
+            // Set the children appropriately
+            if x[delta] <= xi {
+                self.nodes[parent_idx].left = Some(sibling_idx);
+                self.nodes[parent_idx].right = Some(node_idx);
+            } else {
+                self.nodes[parent_idx].left = Some(node_idx);
+                self.nodes[parent_idx].right = Some(sibling_idx);
+            }
+
+            self.nodes[node_idx].parent = Some(parent_idx);
+
+            self.update_internal(parent_idx); // Moved the update logic to a new method
+        } else {
+            let node = &mut self.nodes[node_idx];
+            node.min_list.zip_mut_with(x, |a, b| *a = F::min(*a, *b));
+            node.max_list.zip_mut_with(x, |a, b| *a = F::max(*a, *b));
+
+            if !node.is_leaf {
+                let child_idx = if x[node.delta] <= node.xi {
+                    node.left.unwrap()
+                } else {
+                    node.right.unwrap()
+                };
+                self.extend_mondrian_block(child_idx, x, label);
+                self.update_internal(node_idx); // Moved the update logic to a new method
+            } else {
+                node.update_leaf(x, self.labels.iter().position(|l| l == label).unwrap());
+            }
+        }
+    }
+
+    fn update_internal(&mut self, node_idx: usize) {
+        // In nel215 code update_internal is not called for the children, check if it's needed
+        let node: &Node<F> = &self.nodes[node_idx];
+        let left_s = node.left.map(|idx| &self.nodes[idx].stats);
+        let right_s = node.right.map(|idx| &self.nodes[idx].stats);
+        node.update_internal(left_s, right_s);
     }
 
     /// Note: In Nel215 codebase should work on multiple records, here it's
@@ -125,16 +214,11 @@ impl<F: FType> MondrianTree<F> {
     /// Function in River/LightRiver: "score_one()"
     ///
     /// Recursive function to predict probabilities.
-    fn predict(&self, x: &Array1<F>, node: &Node<F>, p_not_separated_yet: F) -> Array1<F> {
+    fn predict(&self, x: &Array1<F>, node_idx: usize, p_not_separated_yet: F) -> Array1<F> {
         // println!("predict_proba() - MondrianTree: {}", self);
-
+        let node = &self.nodes[node_idx];
         // Step 1: Calculate the time delta from the parent node.
-        // If node is root its time is 0
-        let parent_tau: F = match node.parent {
-            Some(p) => self.nodes[p].tau,
-            None => F::zero(),
-        };
-        let d = node.tau - parent_tau;
+        let d = node.tau - self.get_parent_tau(node_idx);
 
         // Step 2: If 'x' is outside the box, calculate distance of 'x' from the box
         let dist_max = (x - &node.max_list).mapv(|v| F::max(v, F::zero()));
@@ -182,13 +266,21 @@ impl<F: FType> MondrianTree<F> {
             } else {
                 node.right
             };
-            let node = &self.nodes[child_idx.unwrap()];
-            let child_res = self.predict(x, &node, p_not_separated_yet * (F::one() - p));
+            let child_res =
+                self.predict(x, child_idx.unwrap(), p_not_separated_yet * (F::one() - p));
             return res + child_res;
         }
     }
 
     fn get_params(&self) {
         unimplemented!()
+    }
+
+    pub fn get_parent_tau(&self, node_idx: usize) -> F {
+        // If node is root its time (tau) is 0
+        match self.nodes[node_idx].parent {
+            Some(parent_idx) => self.nodes[parent_idx].tau,
+            None => F::from_f32(0.0).unwrap(),
+        }
     }
 }

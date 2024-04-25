@@ -231,18 +231,7 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> C
         }
     }
     pub fn merge(&self, other: ClassifierOutput<F>) -> Self {
-        unimplemented!()
-        // match (self, other) {
-        //     (ClassifierOutput::Probabilities(p1), ClassifierOutput::Probabilities(p2)) => {
-        //         let mut combined = p1.clone();
-        //         for (k, v) in p2 {
-        //             *combined.entry(k).or_insert(F::zero()) += v;
-        //         }
-        //         ClassifierOutput::Probabilities(combined)
-        //     },
-        //     // Add more match arms as needed for other cases.
-        //     _ => unimplemented!(),
-        // }
+        panic!("Not implementing this. Simply add the probabilities of the two vectors.")
     }
 }
 
