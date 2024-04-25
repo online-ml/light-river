@@ -13,6 +13,7 @@ use rand::prelude::*;
 use rand_distr::{Distribution, Exp};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::env::consts;
 use std::fmt;
@@ -31,6 +32,7 @@ pub struct MondrianTree<F: FType> {
     rng: ThreadRng,
     first_learn: bool,
     nodes: Vec<Node<F>>,
+    root: Option<usize>,
 }
 impl<F: FType + fmt::Display> fmt::Display for MondrianTree<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -39,22 +41,23 @@ impl<F: FType + fmt::Display> fmt::Display for MondrianTree<F> {
         write!(f, "│ window_size: {}", self.window_size)?;
         for (i, node) in self.nodes.iter().enumerate() {
             writeln!(f)?;
-            write!(f, "│ │ Node {}: left = {:?}, right = {:?}, parent = {:?}, tau = {}, is_leaf = {}, min = {:?}, max = {:?}", i, node.left, node.right, node.parent, node.tau,  node.is_leaf, node.min_list.to_vec(), node.max_list.to_vec())?;
+            // write!(f, "│ │ Node {}: left = {:?}, right = {:?}, parent = {:?}, tau = {}, min = {:?}, max = {:?}", i, node.left, node.right, node.parent, node.tau,  node.min_list.to_vec(), node.max_list.to_vec())?;
+            write!(f, "│ │ Node {}: left={:?}, right={:?}, parent={:?}, tau={}, is_leaf={}, min={:?}, max={:?}", i, node.left, node.right, node.parent, node.tau,  node.is_leaf, node.min_list.to_vec(), node.max_list.to_vec())?;
+            // write!(f, "│ │ Node {}: left={:?}, right={:?}, parent={:?}, tau={}, min={:?}, max={:?}", i, node.left, node.right, node.parent, node.tau, node.min_list.to_vec(), node.max_list.to_vec())?;
         }
         Ok(())
     }
 }
 impl<F: FType> MondrianTree<F> {
     pub fn new(window_size: usize, features: &Vec<String>, labels: &Vec<String>) -> Self {
-        let mut rng = rand::thread_rng();
-        let nodes = vec![];
         MondrianTree::<F> {
             window_size,
             features: features.clone(),
             labels: labels.clone(),
-            rng,
+            rng: rand::thread_rng(),
             first_learn: false,
-            nodes,
+            nodes: vec![],
+            root: None,
         }
     }
 
@@ -79,6 +82,7 @@ impl<F: FType> MondrianTree<F> {
             right: None,
             stats: Stats::new(num_labels, feature_dim),
         };
+
         // TODO: check if this works:
         // labels: ["s002", "s003", "s004"]
         let label_idx = labels.iter().position(|l| l == label).unwrap();
@@ -92,10 +96,43 @@ impl<F: FType> MondrianTree<F> {
     /// working only on one, so it's the same as "predict()".
     pub fn predict_proba(&self, x: &Array1<F>) -> Array1<F> {
         let root = 0;
+        self.test_tree();
         self.predict(x, root, F::one())
     }
 
-    fn extend_mondrian_block(&mut self, node_idx: usize, x: &Array1<F>, label: &String) {
+    fn test_tree(&self) {
+        for node_idx in 0..self.nodes.len() {
+            // TODO: check if self.root is None, if so tree should be empty
+            if node_idx == self.root.unwrap() {
+                // Root node
+                assert!(self.nodes[node_idx].parent.is_none(), "Root has a parent.");
+            } else {
+                // Non-root node
+                assert!(
+                    !self.nodes[node_idx].parent.is_none(),
+                    "Non-root node has no parent"
+                )
+            }
+        }
+
+        let children_l: Vec<usize> = self.nodes.iter().filter_map(|node| node.left).collect();
+        let children_r: Vec<usize> = self.nodes.iter().filter_map(|node| node.right).collect();
+        let children = [children_l.clone(), children_r.clone()].concat();
+        let mut seen = HashSet::new();
+        let has_duplicates = children.iter().any(|item| !seen.insert(item));
+        assert!(
+            !has_duplicates,
+            "Multiple nodes share 1 child. Children left: {:?}, Children right: {:?}",
+            children_l, children_r
+        );
+
+        // TODO: replace this test with a "Tree integrity" by starting from the root node, recursively
+        //       go to the child, check if the parent is correct.
+    }
+
+    fn extend_mondrian_block(&mut self, node_idx: usize, x: &Array1<F>, label: &String) -> usize {
+        println!("PRE_MONDRIAN");
+
         // Collect necessary values for computations
         let parent_tau = self.get_parent_tau(node_idx);
         let tau = self.nodes[node_idx].tau;
@@ -168,6 +205,8 @@ impl<F: FType> MondrianTree<F> {
             self.nodes[node_idx].parent = Some(parent_idx);
 
             self.update_internal(parent_idx); // Moved the update logic to a new method
+
+            return parent_idx;
         } else {
             let node = &mut self.nodes[node_idx];
             node.min_list.zip_mut_with(x, |a, b| *a = F::min(*a, *b));
@@ -184,6 +223,7 @@ impl<F: FType> MondrianTree<F> {
             } else {
                 node.update_leaf(x, self.labels.iter().position(|l| l == label).unwrap());
             }
+            return node_idx;
         }
     }
 
@@ -200,11 +240,12 @@ impl<F: FType> MondrianTree<F> {
     ///
     /// Function in River/LightRiver: "learn_one()"
     pub fn partial_fit(&mut self, x: &Array1<F>, y: &String) {
-        if self.nodes.len() == 0 {
-            self.create_leaf(x, y, None);
-        } else {
-            self.extend_mondrian_block(0, x, y);
-        }
+        println!("partial_fit() - post root: {:?}", self.root);
+        self.root = match self.root {
+            None => Some(self.create_leaf(x, y, None)),
+            Some(root_idx) => Some(self.extend_mondrian_block(root_idx, x, y)),
+        };
+        println!("partial_fit() - post root: {:?}", self.root);
     }
 
     fn fit(&self) {

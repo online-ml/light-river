@@ -35,6 +35,10 @@ path = "examples/anomaly_detection/credit_card.rs"
 name = "keystroke"
 path = "examples/classification/keystroke.rs"
 
+[[example]]
+name = "synthetic"
+path = "examples/classification/synthetic.rs"
+
 [[bench]]
 name = "hst"
 harness = false
