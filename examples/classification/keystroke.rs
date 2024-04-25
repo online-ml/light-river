@@ -70,11 +70,13 @@ fn main() {
         // DEBUG: remove it
         x_ord = x_ord.slice(s![0..2]).to_owned();
 
+        println!("=M=1 partial_fit");
         mf.partial_fit(&x_ord, &y);
 
+        println!("=M=2 predict_proba");
         let score = mf.predict_proba(&x_ord);
 
-        println!("=== score:: {:?}", score);
+        println!("=M=3 score: {:?}", score);
         println!("");
 
         counter += 1;

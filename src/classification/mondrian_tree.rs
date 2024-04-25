@@ -10,6 +10,7 @@ use num::pow::Pow;
 use num::traits::float;
 use num::{Float, FromPrimitive};
 use rand::prelude::*;
+use rand_distr::{Distribution, Exp};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -92,8 +93,17 @@ impl<F: FType> MondrianTree<F> {
         self.predict(x, root, F::one())
     }
 
-    fn extend_mondrian_block(&self, node: &Node<F>, x: &Array1<F>, label: &String) {
-        println!("=== extend_mondrian_block not implemented")
+    fn extend_mondrian_block(&mut self, node_idx: usize, x: &Array1<F>, label: &String) {
+        // TODO: Check if we access the node somewhere else by reference (&Node).
+        // If so pass it by ref here instead of 'node_idx' so we don't access it twice.
+        let node = &self.nodes[node_idx];
+        let e_min = (&node.min_list - x).mapv(|v| v.max(F::zero()));
+        let e_max = (x - &node.max_list).mapv(|v| v.max(F::zero()));
+        let e_sum = &e_min + &e_max;
+        let rate = e_sum.sum() + F::epsilon();
+        let exp_dist = Exp::new(rate.to_f32().unwrap()).unwrap();
+        let E = F::from_f32(exp_dist.sample(&mut self.rng)).unwrap();
+        println!("=== rate: {}, E: {}", rate, E);
     }
 
     /// Note: In Nel215 codebase should work on multiple records, here it's
@@ -104,7 +114,7 @@ impl<F: FType> MondrianTree<F> {
         if self.nodes.len() == 0 {
             self.create_leaf(x, y, None);
         } else {
-            self.extend_mondrian_block(&self.nodes[0], x, y);
+            self.extend_mondrian_block(0, x, y);
         }
     }
 
@@ -116,8 +126,7 @@ impl<F: FType> MondrianTree<F> {
     ///
     /// Recursive function to predict probabilities.
     fn predict(&self, x: &Array1<F>, node: &Node<F>, p_not_separated_yet: F) -> Array1<F> {
-        // println!("Node: {node:?}");
-        println!("predict_proba() - MondrianTree: {}", self);
+        // println!("predict_proba() - MondrianTree: {}", self);
 
         // Step 1: Calculate the time delta from the parent node.
         // If node is root its time is 0
@@ -152,10 +161,10 @@ impl<F: FType> MondrianTree<F> {
         // let p_not_separated_yet = F::from_f32(0.8).unwrap();
         // let p = F::from_f32(0.9).unwrap();
 
-        println!(
-            "predict() - res: {:?}, p_not_separated_yet: {:?}, p: {:?}",
-            res, p_not_separated_yet, p
-        );
+        // println!(
+        //     "predict() - res: {:?}, p_not_separated_yet: {:?}, p: {:?}",
+        //     res, p_not_separated_yet, p
+        // );
 
         if node.is_leaf {
             let w = p_not_separated_yet * (F::one() - p);

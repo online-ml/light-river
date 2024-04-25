@@ -16,6 +16,7 @@ rand = "0.8.5"
 time = "0.3.29"
 half = "2.3.1"
 ndarray = "0.15.6"
+rand_distr = "0.4.3"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }

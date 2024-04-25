@@ -159,7 +159,6 @@ impl<F: FType> Stats<F> {
     pub fn predict_proba(&self, x: &Array1<F>) -> Array1<F> {
         let mut probs = Array1::zeros(self.num_labels);
         let mut sum_prob = F::zero();
-        println!("{self}");
 
         for (index, ((sum, sq_sum), &count)) in self
             .sums
