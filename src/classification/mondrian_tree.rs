@@ -34,20 +34,35 @@ pub struct MondrianTree<F: FType> {
     nodes: Vec<Node<F>>,
     root: Option<usize>,
 }
+
 impl<F: FType + fmt::Display> fmt::Display for MondrianTree<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f)?;
         writeln!(f, "┌ MondrianTree")?;
-        write!(f, "│ window_size: {}", self.window_size)?;
-        for (i, node) in self.nodes.iter().enumerate() {
-            writeln!(f)?;
-            write!(f, "│ │ Node {}: left={:?}, right={:?}, parent={:?}, tau={}, is_leaf={}, min={:?}, max={:?}", i, node.left, node.right, node.parent, node.tau,  node.is_leaf, node.min_list.to_vec(), node.max_list.to_vec())?;
-            // write!(f, "│ │ Node {}: left={:?}, right={:?}, parent={:?}, is_leaf={}, min={:?}, max={:?}", i, node.left, node.right, node.parent, node.is_leaf, node.min_list.to_vec(), node.max_list.to_vec())?;
-            // write!(f, "│ │ Node {}: left={:?}, right={:?}, parent={:?}, tau={}, min={:?}, max={:?}", i, node.left, node.right, node.parent, node.tau, node.min_list.to_vec(), node.max_list.to_vec())?;
+        writeln!(f, "│ window_size: {}", self.window_size)?;
+        self.recursive_repr(self.root, f, "│ ")
+    }
+}
+
+impl<F: FType + fmt::Display> MondrianTree<F> {
+    /// Helper method to recursively format node details.
+    fn recursive_repr(
+        &self,
+        node_idx: Option<usize>,
+        f: &mut fmt::Formatter<'_>,
+        prefix: &str,
+    ) -> fmt::Result {
+        if let Some(idx) = node_idx {
+            let node = &self.nodes[idx];
+            writeln!(f, "{}Node {}: left={:?}, right={:?}, parent={:?}, tau={:.3}, is_leaf={}, min={:?}, max={:?}",
+                     prefix, idx, node.left, node.right, node.parent, node.tau, node.is_leaf, node.min_list.to_vec(), node.max_list.to_vec())?;
+
+            self.recursive_repr(node.left, f, &(prefix.to_owned() + "│ "))?;
+            self.recursive_repr(node.right, f, &(prefix.to_owned() + "│ "))?;
         }
         Ok(())
     }
 }
+
 impl<F: FType> MondrianTree<F> {
     pub fn new(window_size: usize, features: &Vec<String>, labels: &Vec<String>) -> Self {
         MondrianTree::<F> {
@@ -115,12 +130,9 @@ impl<F: FType> MondrianTree<F> {
         let has_duplicates = children.iter().any(|item| !seen.insert(item));
         assert!(
             !has_duplicates,
-            "Multiple nodes share 1 child. Children left: {:?}, Children right: {:?}",
+            "Multiple nodes share one child. Children left: {:?}, Children right: {:?}",
             children_l, children_r
         );
-
-        // TODO: replace this test with a "Tree integrity" by starting from the root node, recursively
-        //       go to the child, check if the parent is correct.
     }
 
     fn extend_mondrian_block(&mut self, node_idx: usize, x: &Array1<F>, label: &String) -> usize {
