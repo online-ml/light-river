@@ -19,7 +19,9 @@ use std::time::Instant;
 fn get_features(transactions: IterCsv<f32, File>) -> Vec<String> {
     let sample = transactions.into_iter().next();
     let observation = sample.unwrap().unwrap().get_observation();
-    observation.iter().map(|(k, _)| k.clone()).collect()
+    let mut out: Vec<String> = observation.iter().map(|(k, _)| k.clone()).collect();
+    out.sort();
+    out
 }
 
 fn get_labels(transactions: IterCsv<f32, File>) -> Vec<String> {
@@ -42,14 +44,10 @@ fn main() {
 
     let transactions_f = Synthetic::load_data().unwrap();
     let features = get_features(transactions_f);
-    // DEBUG: remove it
-    // let features = features[0..2].to_vec();
 
     let transactions_c = Synthetic::load_data().unwrap();
     let labels = get_labels(transactions_c);
-    // DEBUG: remove it
-    // let labels = labels[0..3].to_vec();
-    println!("labels: {labels:?}");
+    println!("labels: {labels:?}, features: {features:?}");
     let mut mf: MondrianForest<f32> = MondrianForest::new(window_size, n_trees, &features, &labels);
 
     let transactions = Synthetic::load_data().unwrap();
@@ -65,8 +63,6 @@ fn main() {
             _ => unimplemented!(),
         };
         let x_ord = Array1::<f32>::from_vec(features.iter().map(|k| x[k]).collect());
-        // DEBUG: remove it
-        // let x_ord = x_ord.slice(s![0..2]).to_owned();
 
         println!("=M=1 partial_fit {x_ord}");
         mf.partial_fit(&x_ord, &y);
@@ -74,7 +70,7 @@ fn main() {
         println!("=M=2 predict_proba");
         let score = mf.predict_proba(&x_ord);
 
-        println!("=M=3 score: {:?}", score);
+        println!("=M=3 score: {:?}", score.to_vec());
         println!("");
     }
 

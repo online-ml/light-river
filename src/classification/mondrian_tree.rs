@@ -41,8 +41,8 @@ impl<F: FType + fmt::Display> fmt::Display for MondrianTree<F> {
         write!(f, "│ window_size: {}", self.window_size)?;
         for (i, node) in self.nodes.iter().enumerate() {
             writeln!(f)?;
-            // write!(f, "│ │ Node {}: left = {:?}, right = {:?}, parent = {:?}, tau = {}, min = {:?}, max = {:?}", i, node.left, node.right, node.parent, node.tau,  node.min_list.to_vec(), node.max_list.to_vec())?;
             write!(f, "│ │ Node {}: left={:?}, right={:?}, parent={:?}, tau={}, is_leaf={}, min={:?}, max={:?}", i, node.left, node.right, node.parent, node.tau,  node.is_leaf, node.min_list.to_vec(), node.max_list.to_vec())?;
+            // write!(f, "│ │ Node {}: left={:?}, right={:?}, parent={:?}, is_leaf={}, min={:?}, max={:?}", i, node.left, node.right, node.parent, node.is_leaf, node.min_list.to_vec(), node.max_list.to_vec())?;
             // write!(f, "│ │ Node {}: left={:?}, right={:?}, parent={:?}, tau={}, min={:?}, max={:?}", i, node.left, node.right, node.parent, node.tau, node.min_list.to_vec(), node.max_list.to_vec())?;
         }
         Ok(())
@@ -62,20 +62,15 @@ impl<F: FType> MondrianTree<F> {
     }
 
     fn create_leaf(&mut self, x: &Array1<F>, label: &String, parent: Option<usize>) -> usize {
-        let min_list: ArrayBase<ndarray::OwnedRepr<F>, Dim<[usize; 1]>> =
-            Array1::zeros(self.features.len());
-        let max_list = Array1::zeros(self.features.len());
-
         let num_labels = self.labels.len();
         let feature_dim = self.features.len();
-        let labels = self.labels.clone();
 
         let mut node = Node::<F> {
             parent,
-            tau: F::from(1e9).unwrap(), // Very large value for tau
+            tau: F::from(1e9).unwrap(), // Very large value
             is_leaf: true,
-            min_list,
-            max_list,
+            min_list: x.clone(),
+            max_list: x.clone(),
             delta: 0,
             xi: F::zero(),
             left: None,
@@ -83,9 +78,7 @@ impl<F: FType> MondrianTree<F> {
             stats: Stats::new(num_labels, feature_dim),
         };
 
-        // TODO: check if this works:
-        // labels: ["s002", "s003", "s004"]
-        let label_idx = labels.iter().position(|l| l == label).unwrap();
+        let label_idx = self.labels.clone().iter().position(|l| l == label).unwrap();
         node.update_leaf(x, label_idx);
         self.nodes.push(node);
         let node_idx = self.nodes.len() - 1;
@@ -131,22 +124,26 @@ impl<F: FType> MondrianTree<F> {
     }
 
     fn extend_mondrian_block(&mut self, node_idx: usize, x: &Array1<F>, label: &String) -> usize {
-        println!("PRE_MONDRIAN");
-
         // Collect necessary values for computations
         let parent_tau = self.get_parent_tau(node_idx);
         let tau = self.nodes[node_idx].tau;
+        // TODO: 'node_min_list' and 'node_max_list' be accessible without cloning
         let node_min_list = self.nodes[node_idx].min_list.clone();
         let node_max_list = self.nodes[node_idx].max_list.clone();
 
         let e_min = (&node_min_list - x).mapv(|v| F::max(v, F::zero()));
         let e_max = (x - &node_max_list).mapv(|v| F::max(v, F::zero()));
+        // e_sum: size of the box [x_size, y_size]
         let e_sum = &e_min + &e_max;
+        // 'rate' is lambda
         let rate = e_sum.sum() + F::epsilon();
         let exp_dist = Exp::new(rate.to_f32().unwrap()).unwrap();
-        let E = F::from_f32(exp_dist.sample(&mut self.rng)).unwrap();
+        // 'exp_sample' is 'E' in nel215 code
+        let exp_sample = F::from_f32(exp_dist.sample(&mut self.rng)).unwrap();
+        // DEBUG: shadowing with Exp expected value
+        let exp_sample = F::one() / rate;
 
-        if parent_tau + E < tau {
+        if parent_tau + exp_sample < tau {
             let cumsum = e_sum
                 .iter()
                 .scan(F::zero(), |acc, &x| {
@@ -154,21 +151,25 @@ impl<F: FType> MondrianTree<F> {
                     Some(*acc)
                 })
                 .collect::<Array1<F>>();
-            let e_sample =
-                F::from_f32(self.rng.gen::<f32>() * e_sum.sum().to_f32().unwrap()).unwrap();
+            // DEBUG: shadowing with expected value
+            let e_sample = F::from_f32(self.rng.gen::<f32>()).unwrap() * e_sum.sum();
+            let e_sample = F::from_f32(0.5).unwrap() * e_sum.sum();
             let delta = cumsum.iter().position(|&val| val > e_sample).unwrap_or(0);
-            let xi =
-                if x[delta] > node_min_list[delta] {
-                    F::from_f32(self.rng.gen_range(
-                        node_min_list[delta].to_f32().unwrap()..x[delta].to_f32().unwrap(),
-                    ))
-                    .unwrap()
-                } else {
-                    F::from_f32(self.rng.gen_range(
-                        x[delta].to_f32().unwrap()..node_max_list[delta].to_f32().unwrap(),
-                    ))
-                    .unwrap()
-                };
+
+            let (lower_bound, upper_bound) = if x[delta] > node_min_list[delta] {
+                (
+                    node_min_list[delta].to_f32().unwrap(),
+                    x[delta].to_f32().unwrap(),
+                )
+            } else {
+                (
+                    x[delta].to_f32().unwrap(),
+                    node_max_list[delta].to_f32().unwrap(),
+                )
+            };
+            let xi = F::from_f32(self.rng.gen_range(lower_bound..upper_bound)).unwrap();
+            // DEBUG: setting expected value
+            let xi = F::from_f32((lower_bound + upper_bound) / 2.0).unwrap();
 
             let mut min_list = node_min_list;
             let mut max_list = node_max_list;
@@ -178,7 +179,7 @@ impl<F: FType> MondrianTree<F> {
             // Create and push new parent node
             let parent_node = Node {
                 parent: self.nodes[node_idx].parent,
-                tau: parent_tau + E,
+                tau: parent_tau + exp_sample,
                 is_leaf: false,
                 min_list,
                 max_list,
@@ -188,6 +189,10 @@ impl<F: FType> MondrianTree<F> {
                 right: None,
                 stats: Stats::new(self.labels.len(), self.features.len()),
             };
+            println!(
+                "extend_mondrian_block() - mid if - grandpa: {:?}",
+                self.nodes[node_idx].parent
+            );
 
             self.nodes.push(parent_node);
             let parent_idx = self.nodes.len() - 1;
@@ -195,6 +200,10 @@ impl<F: FType> MondrianTree<F> {
 
             // Set the children appropriately
             if x[delta] <= xi {
+                // Grandpa: self.nodes[node_idx].parent
+                // (new) Parent: parent_idx
+                // Child: node_idx
+                // (new) Sibling: sibling_idx
                 self.nodes[parent_idx].left = Some(sibling_idx);
                 self.nodes[parent_idx].right = Some(node_idx);
             } else {
@@ -204,25 +213,47 @@ impl<F: FType> MondrianTree<F> {
 
             self.nodes[node_idx].parent = Some(parent_idx);
 
-            self.update_internal(parent_idx); // Moved the update logic to a new method
+            self.update_internal(parent_idx);
 
+            println!(
+                "extend_mondrian_block() - mid if - parent: {:?}, child: {:?}",
+                parent_idx, node_idx
+            );
+
+            println!("extend_modnrian_block() - post if");
             return parent_idx;
         } else {
             let node = &mut self.nodes[node_idx];
             node.min_list.zip_mut_with(x, |a, b| *a = F::min(*a, *b));
             node.max_list.zip_mut_with(x, |a, b| *a = F::max(*a, *b));
-
             if !node.is_leaf {
-                let child_idx = if x[node.delta] <= node.xi {
-                    node.left.unwrap()
+                println!(
+                    "extend_mondrian_block() - mid else - is_leaf - delta: {:?}, xi: {:?}",
+                    node.delta, node.xi
+                );
+                // TODO: understand how to make the following without making Rust angry with borrowing rules
+                // node.left = Some(self.extend_mondrian_block(node.left, x, label));
+                if x[node.delta] <= node.xi {
+                    let node_left = node.left.unwrap();
+                    let node_left_new = Some(self.extend_mondrian_block(node_left, x, label));
+                    let node = &mut self.nodes[node_idx];
+                    node.left = node_left_new;
                 } else {
-                    node.right.unwrap()
+                    let node_right = node.right.unwrap();
+                    let node_right_new = Some(self.extend_mondrian_block(node_right, x, label));
+                    let node = &mut self.nodes[node_idx];
+                    node.right = node_right_new;
                 };
-                self.extend_mondrian_block(child_idx, x, label);
-                self.update_internal(node_idx); // Moved the update logic to a new method
+                self.update_internal(node_idx);
             } else {
-                node.update_leaf(x, self.labels.iter().position(|l| l == label).unwrap());
+                println!(
+                    "extend_mondrian_block() - mid else - is_leaf NOT - delta: {:?}, xi: {:?}",
+                    node.delta, node.xi
+                );
+                let label_idx = self.labels.iter().position(|l| l == label).unwrap();
+                node.update_leaf(x, label_idx);
             }
+            println!("extend_modnrian_block() - post else");
             return node_idx;
         }
     }
@@ -240,12 +271,19 @@ impl<F: FType> MondrianTree<F> {
     ///
     /// Function in River/LightRiver: "learn_one()"
     pub fn partial_fit(&mut self, x: &Array1<F>, y: &String) {
-        println!("partial_fit() - post root: {:?}", self.root);
+        // TODO: remove prints, roll back to previous version
         self.root = match self.root {
-            None => Some(self.create_leaf(x, y, None)),
-            Some(root_idx) => Some(self.extend_mondrian_block(root_idx, x, y)),
+            None => {
+                let a = Some(self.create_leaf(x, y, None));
+                println!("create_leaf() - post {self}");
+                a
+            }
+            Some(root_idx) => {
+                let a = Some(self.extend_mondrian_block(root_idx, x, y));
+                println!("extend_modnrian_block() - post {self}");
+                a
+            }
         };
-        println!("partial_fit() - post root: {:?}", self.root);
     }
 
     fn fit(&self) {
@@ -318,7 +356,7 @@ impl<F: FType> MondrianTree<F> {
     }
 
     pub fn get_parent_tau(&self, node_idx: usize) -> F {
-        // If node is root its time (tau) is 0
+        // If node is root, tau is 0
         match self.nodes[node_idx].parent {
             Some(parent_idx) => self.nodes[parent_idx].tau,
             None => F::from_f32(0.0).unwrap(),

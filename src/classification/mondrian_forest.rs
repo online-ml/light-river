@@ -45,7 +45,6 @@ impl<F: FType> MondrianForest<F> {
     pub fn partial_fit(&mut self, x: &Array1<F>, y: &String) {
         for tree in &mut self.trees {
             tree.partial_fit(x, y);
-            println!("treeee {}", tree);
         }
     }
 

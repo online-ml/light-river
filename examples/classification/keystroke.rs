@@ -20,7 +20,9 @@ fn get_features(transactions: IterCsv<f32, File>) -> Vec<String> {
     // TODO: pass transaction file by reference, in main use only one "Keystroke::load_data().unwrap()"
     let sample = transactions.into_iter().next();
     let observation = sample.unwrap().unwrap().get_observation();
-    observation.iter().map(|(k, _)| k.clone()).collect()
+    let mut out: Vec<String> = observation.iter().map(|(k, _)| k.clone()).collect();
+    out.sort();
+    out
 }
 
 fn get_labels(transactions: IterCsv<f32, File>) -> Vec<String> {

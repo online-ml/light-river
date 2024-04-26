@@ -71,7 +71,7 @@ pub struct Stats<F> {
 }
 impl<F: FType + fmt::Display> fmt::Display for Stats<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "┌ Stats")?;
+        writeln!(f, "\n┌ Stats")?;
         // sums
         write!(f, "│ sums: [")?;
         for row in self.sums.outer_iter() {
