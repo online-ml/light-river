@@ -37,8 +37,7 @@ pub struct MondrianTree<F: FType> {
 
 impl<F: FType + fmt::Display> fmt::Display for MondrianTree<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "┌ MondrianTree")?;
-        writeln!(f, "│ window_size: {}", self.window_size)?;
+        writeln!(f, "\n┌ MondrianTree")?;
         self.recursive_repr(self.root, f, "│ ")
     }
 }
@@ -53,8 +52,19 @@ impl<F: FType + fmt::Display> MondrianTree<F> {
     ) -> fmt::Result {
         if let Some(idx) = node_idx {
             let node = &self.nodes[idx];
-            writeln!(f, "{}Node {}: left={:?}, right={:?}, parent={:?}, tau={:.3}, is_leaf={}, min={:?}, max={:?}",
-                     prefix, idx, node.left, node.right, node.parent, node.tau, node.is_leaf, node.min_list.to_vec(), node.max_list.to_vec())?;
+            // writeln!(f, "{}Node {}: left={:?}, right={:?}, parent={:?}, tau={:.3}, is_leaf={}, min={:?}, max={:?}",
+            //          prefix, idx, node.left, node.right, node.parent, node.tau, node.is_leaf, node.min_list.to_vec(), node.max_list.to_vec())?;
+            writeln!(
+                f,
+                "{}Node {}: left={:?}, right={:?}, parent={:?}, min={:?}, max={:?}",
+                prefix,
+                idx,
+                node.left,
+                node.right,
+                node.parent,
+                node.min_list.to_vec(),
+                node.max_list.to_vec()
+            )?;
 
             self.recursive_repr(node.left, f, &(prefix.to_owned() + "│ "))?;
             self.recursive_repr(node.right, f, &(prefix.to_owned() + "│ "))?;
@@ -103,9 +113,8 @@ impl<F: FType> MondrianTree<F> {
     /// Note: In Nel215 codebase should work on multiple records, here it's
     /// working only on one, so it's the same as "predict()".
     pub fn predict_proba(&self, x: &Array1<F>) -> Array1<F> {
-        let root = 0;
         self.test_tree();
-        self.predict(x, root, F::one())
+        self.predict(x, self.root.unwrap(), F::one())
     }
 
     fn test_tree(&self) {
@@ -201,10 +210,6 @@ impl<F: FType> MondrianTree<F> {
                 right: None,
                 stats: Stats::new(self.labels.len(), self.features.len()),
             };
-            println!(
-                "extend_mondrian_block() - mid if - grandpa: {:?}",
-                self.nodes[node_idx].parent
-            );
 
             self.nodes.push(parent_node);
             let parent_idx = self.nodes.len() - 1;
@@ -227,22 +232,12 @@ impl<F: FType> MondrianTree<F> {
 
             self.update_internal(parent_idx);
 
-            println!(
-                "extend_mondrian_block() - mid if - parent: {:?}, child: {:?}",
-                parent_idx, node_idx
-            );
-
-            println!("extend_modnrian_block() - post if");
             return parent_idx;
         } else {
             let node = &mut self.nodes[node_idx];
             node.min_list.zip_mut_with(x, |a, b| *a = F::min(*a, *b));
             node.max_list.zip_mut_with(x, |a, b| *a = F::max(*a, *b));
             if !node.is_leaf {
-                println!(
-                    "extend_mondrian_block() - mid else - is_leaf - delta: {:?}, xi: {:?}",
-                    node.delta, node.xi
-                );
                 // TODO: understand how to make the following without making Rust angry with borrowing rules
                 // node.left = Some(self.extend_mondrian_block(node.left, x, label));
                 if x[node.delta] <= node.xi {
@@ -258,24 +253,22 @@ impl<F: FType> MondrianTree<F> {
                 };
                 self.update_internal(node_idx);
             } else {
-                println!(
-                    "extend_mondrian_block() - mid else - is_leaf NOT - delta: {:?}, xi: {:?}",
-                    node.delta, node.xi
-                );
                 let label_idx = self.labels.iter().position(|l| l == label).unwrap();
                 node.update_leaf(x, label_idx);
             }
-            println!("extend_modnrian_block() - post else");
             return node_idx;
         }
     }
 
     fn update_internal(&mut self, node_idx: usize) {
         // In nel215 code update_internal is not called for the children, check if it's needed
-        let node: &Node<F> = &self.nodes[node_idx];
-        let left_s = node.left.map(|idx| &self.nodes[idx].stats);
-        let right_s = node.right.map(|idx| &self.nodes[idx].stats);
-        node.update_internal(left_s, right_s);
+        let node = &self.nodes[node_idx];
+        let left_s = &self.nodes[node.left.unwrap()].stats;
+        let right_s = &self.nodes[node.right.unwrap()].stats;
+        let merge_s = node.update_internal(left_s, right_s);
+
+        let node = &mut self.nodes[node_idx];
+        node.stats = merge_s;
     }
 
     /// Note: In Nel215 codebase should work on multiple records, here it's
@@ -285,16 +278,8 @@ impl<F: FType> MondrianTree<F> {
     pub fn partial_fit(&mut self, x: &Array1<F>, y: &String) {
         // TODO: remove prints, roll back to previous version
         self.root = match self.root {
-            None => {
-                let a = Some(self.create_leaf(x, y, None));
-                println!("create_leaf() - post {self}");
-                a
-            }
-            Some(root_idx) => {
-                let a = Some(self.extend_mondrian_block(root_idx, x, y));
-                println!("extend_modnrian_block() - post {self}");
-                a
-            }
+            None => Some(self.create_leaf(x, y, None)),
+            Some(root_idx) => Some(self.extend_mondrian_block(root_idx, x, y)),
         };
     }
 
@@ -306,7 +291,7 @@ impl<F: FType> MondrianTree<F> {
     ///
     /// Recursive function to predict probabilities.
     fn predict(&self, x: &Array1<F>, node_idx: usize, p_not_separated_yet: F) -> Array1<F> {
-        // println!("predict_proba() - MondrianTree: {}", self);
+        // println!("predict() - tree {}", self);
         let node = &self.nodes[node_idx];
         // Step 1: Calculate the time delta from the parent node.
         let d = node.tau - self.get_parent_tau(node_idx);
@@ -323,19 +308,11 @@ impl<F: FType> MondrianTree<F> {
         //     eta (box dist): larger distance, more prob of splitting
         //     d (time diff with parent): more dist with parent, more prob of splitting
         let p = F::one() - (-d * eta).exp();
+        // println!("predict() -> pre  create_result() - node_idx {}", node.stats);
 
         // Step 4: Generate a result for the current node using its statistics.
         let res = node.stats.create_result(x, p_not_separated_yet * p);
-
-        // DEBUG: Shadowing with bogous values since output would be simply [1.0, 0.0, 0.0]
-        // let res = Array1::from_vec(vec![
-        //     F::from_f32(0.7).unwrap(),
-        //     F::from_f32(0.2).unwrap(),
-        //     F::from_f32(0.1).unwrap(),
-        // ]);
-        // let p_not_separated_yet = F::from_f32(0.8).unwrap();
-        // let p = F::from_f32(0.9).unwrap();
-
+        // println!("predict() -> post create_result() - node.stats: {}", node.stats);
         // println!(
         //     "predict() - res: {:?}, p_not_separated_yet: {:?}, p: {:?}",
         //     res, p_not_separated_yet, p
@@ -344,10 +321,10 @@ impl<F: FType> MondrianTree<F> {
         if node.is_leaf {
             let w = p_not_separated_yet * (F::one() - p);
             let res2 = node.stats.create_result(x, w);
+            // println!("predict() - ischild - res: {:?}, res2: {:?}", res.to_vec(), res2.to_vec());
             // Check sum of probabililties is 1
-            let sum_res = ((&res + &res2).sum() - F::one()).abs();
             assert!(
-                sum_res < F::from_f32(0.001).unwrap(),
+                ((&res + &res2).sum() - F::one()).abs() < F::from_f32(0.001).unwrap(),
                 "Sum of probs should be 1."
             );
             return res + res2;
@@ -359,6 +336,7 @@ impl<F: FType> MondrianTree<F> {
             };
             let child_res =
                 self.predict(x, child_idx.unwrap(), p_not_separated_yet * (F::one() - p));
+            // println!("predict() - notchild - res: {:?}, child_res: {:?}", res.to_vec(), child_res.to_vec());
             return res + child_res;
         }
     }

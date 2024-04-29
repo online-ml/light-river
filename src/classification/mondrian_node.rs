@@ -40,19 +40,16 @@ impl<F: FType> Node<F> {
     pub fn update_leaf(&mut self, x: &Array1<F>, label_idx: usize) {
         self.stats.add(x, label_idx);
     }
-    pub fn update_internal(
-        &self,
-        left_s: Option<&Stats<F>>,
-        right_s: Option<&Stats<F>>,
-    ) -> Stats<F> {
-        match (left_s, right_s) {
-            (Some(left), Some(right)) => left.merge(right),
-            (None, Some(right)) => unimplemented!("uncomment the following"), // right.clone(),
-            (Some(left), None) => unimplemented!("uncomment the following"),  // left.clone(),
-            (None, None) => unimplemented!(
-                "Both left and right stats are None. Should I return simply 'self.stats'?"
-            ),
-        }
+    pub fn update_internal(&self, left_s: &Stats<F>, right_s: &Stats<F>) -> Stats<F> {
+        // match (left_s, right_s) {
+        //     (Some(left), Some(right)) => left.merge(right),
+        //     (None, Some(right)) => unimplemented!("uncomment the following"), // right.clone(),
+        //     (Some(left), None) => unimplemented!("uncomment the following"),  // left.clone(),
+        //     (None, None) => unimplemented!(
+        //         "Both left and right stats are None. Should I return simply 'self.stats'?"
+        //     ),
+        // }
+        left_s.merge(right_s)
     }
     pub fn get_parent_tau(&self) -> F {
         panic!("Implemented in 'mondrian_tree' instead of 'mondrian_node'")
@@ -164,6 +161,8 @@ impl<F: FType> Stats<F> {
         let mut probs = Array1::zeros(self.num_labels);
         let mut sum_prob = F::zero();
 
+        // println!("predict_proba() - start {}", self);
+
         for (index, ((sum, sq_sum), &count)) in self
             .sums
             .outer_iter()
@@ -171,26 +170,39 @@ impl<F: FType> Stats<F> {
             .zip(self.counts.iter())
             .enumerate()
         {
+            // println!("predict_proba() - mid - index: {:?}, sum: {:?}, sq_sum: {:?}, count: {:?}", index, sum.to_vec(), sq_sum.to_vec(), count);
+            // let epsilon = F::epsilon(); // Don't use this variable, write 'F::epsilon' where needed.
+            let epsilon = F::from_f32(1e-9).unwrap();
             let count_f = F::from_usize(count).unwrap();
             let avg = &sum / count_f;
-            let var = (&sq_sum / count_f) - (&avg * &avg) + F::epsilon();
-            let sigma = (&var * count_f) / (count_f - F::one() + F::epsilon());
+            let var = (&sq_sum / count_f) - (&avg * &avg) + epsilon;
+            let sigma = (&var * count_f) / (count_f - F::one() + epsilon);
+            // println!("predict_proba() - mid - avg: {:?}, var: {:?}, sigma: {:?}", avg.to_vec(), var.to_vec(), sigma.to_vec());
             let pi = F::from_f32(std::f32::consts::PI).unwrap() * F::from_f32(2.0).unwrap();
             let z = pi.powi(x.len() as i32) * sigma.mapv(|s| s * s).sum().sqrt();
             // Same as dot product
             let dot_delta = (&(x - &avg) * &(x - &avg)).sum();
             let dot_sigma = (&sigma * &sigma).sum();
-            let exponent = F::from_f32(0.5).unwrap() * dot_delta / dot_sigma;
-            let mut prob = exponent.exp() / z;
-            if count >= 1 {
-                assert!(!prob.is_nan(), "Probabaility should never be NaN.");
-            } else {
-                assert!(prob.is_nan(), "Probabaility should be NaN.");
+            let exponent = -F::from_f32(0.5).unwrap() * dot_delta / dot_sigma;
+            // epsilon added since exponent.exp() could be zero if exponent is very small
+            let mut prob = (exponent.exp() + epsilon) / z;
+            if count <= 0 {
+                assert!(prob.is_nan(), "Probabaility should be NaN. Found: {prob}.");
                 prob = F::zero();
             }
             sum_prob += prob;
             probs[index] = prob;
         }
+
+        // println!("predict_proba() post - probs: {:?}", probs.to_vec());
+        // println!();
+
+        // Check at least one probability is non-zero. Otherwise we have division by zero.
+        assert!(
+            !probs.iter().all(|&x| x == F::zero()),
+            "At least one probability should not be zero. Found: {:?}.",
+            probs.to_vec()
+        );
 
         for prob in probs.iter_mut() {
             *prob /= sum_prob;

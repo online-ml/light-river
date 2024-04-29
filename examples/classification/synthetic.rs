@@ -68,9 +68,13 @@ fn main() {
         mf.partial_fit(&x_ord, &y);
 
         println!("=M=2 predict_proba");
-        let score = mf.predict_proba(&x_ord);
+        let probs = mf.predict_proba(&x_ord);
 
-        println!("=M=3 score: {:?}", score.to_vec());
+        println!("=M=3 probs: {:?}", probs.to_vec());
+
+        let score = mf.score(&x_ord, &y);
+        println!("=M=4 score: {:?}", score);
+
         println!("");
     }
 

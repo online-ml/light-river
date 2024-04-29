@@ -64,6 +64,12 @@ impl<F: FType> MondrianForest<F> {
         // Sum probabilities from each tree
         for tree in &self.trees {
             let probs = tree.predict_proba(x);
+            // println!("predict_proba() - tree {}", tree);
+            assert!(
+                !probs.iter().any(|&x| x.is_nan()),
+                "Probability should not be NaN. Found: {:?}.",
+                probs.to_vec()
+            );
             total_probs += &probs; // Assuming `probs` is an Array1<F>
         }
 
@@ -71,5 +77,21 @@ impl<F: FType> MondrianForest<F> {
         total_probs /= F::from_usize(n_trees).unwrap();
 
         total_probs
+    }
+
+    pub fn score(&mut self, x: &Array1<F>, y: &String) -> F {
+        let probs = self.predict_proba(x);
+        let y_idx = self.labels.iter().position(|l| l == y).unwrap();
+        let pred_idx = probs
+            .iter()
+            .enumerate()
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+            .map(|(idx, _)| idx)
+            .unwrap();
+        if pred_idx == y_idx {
+            F::one()
+        } else {
+            F::zero()
+        }
     }
 }
