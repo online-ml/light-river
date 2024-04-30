@@ -82,7 +82,7 @@ fn main() {
         // if idx == 10 {
         //     panic!("stop");
         // }
-        // println!("=M=1 partial_fit {x_ord}");
+        println!("=M=1 partial_fit {x_ord}");
         mf.partial_fit(&x_ord, &y);
     }
 

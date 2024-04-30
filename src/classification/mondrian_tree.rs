@@ -56,12 +56,13 @@ impl<F: FType + fmt::Display> MondrianTree<F> {
             //          prefix, idx, node.left, node.right, node.parent, node.tau, node.is_leaf, node.min_list.to_vec(), node.max_list.to_vec())?;
             writeln!(
                 f,
-                "{}Node {}: left={:?}, right={:?}, parent={:?}, min={:?}, max={:?}",
+                "{}├─Node {}: left={:?}, right={:?}, parent={:?}, tau={:.3}, min={:?}, max={:?}",
                 prefix,
                 idx,
                 node.left,
                 node.right,
                 node.parent,
+                node.tau,
                 node.min_list.to_vec(),
                 node.max_list.to_vec()
             )?;
@@ -146,9 +147,12 @@ impl<F: FType> MondrianTree<F> {
         );
     }
 
+    // fn range_extension(&self, )
+
     fn extend_mondrian_block(&mut self, node_idx: usize, x: &Array1<F>, label: &String) -> usize {
         // Collect necessary values for computations
         let parent_tau = self.get_parent_tau(node_idx);
+        // tau is 'node.time' in
         let tau = self.nodes[node_idx].tau;
         // TODO: 'node_min_list' and 'node_max_list' be accessible without cloning
         let node_min_list = self.nodes[node_idx].min_list.clone();
@@ -156,17 +160,26 @@ impl<F: FType> MondrianTree<F> {
 
         let e_min = (&node_min_list - x).mapv(|v| F::max(v, F::zero()));
         let e_max = (x - &node_max_list).mapv(|v| F::max(v, F::zero()));
-        // e_sum: size of the box [x_size, y_size]
+        // Extensions sum: size of the box [x_size, y_size]
         let e_sum = &e_min + &e_max;
-        // 'rate' is lambda
-        let rate = e_sum.sum() + F::epsilon();
-        let exp_dist = Exp::new(rate.to_f32().unwrap()).unwrap();
-        // 'exp_sample' is 'E' in nel215 code
+        // TODO: epsilon is used in nel215 code, but not River. Check if it's useful.
+        // let lambda = e_sum.sum() + F::epsilon();
+        // In nel215 lambda is 'rate'
+        let lambda = e_sum.sum();
+        let exp_dist = Exp::new(lambda.to_f32().unwrap()).unwrap();
+        // 'exp_sample' is 'E' in nel215 code, 'T' in River
         let exp_sample = F::from_f32(exp_dist.sample(&mut self.rng)).unwrap();
         // DEBUG: shadowing with Exp expected value
-        // let exp_sample = F::one() / rate;
+        let exp_sample = F::one() / lambda;
+
+        let split_time_rust = tau - (parent_tau + exp_sample);
+        let split_time_river = tau + exp_sample;
+        println!("extend_mondrian_block()/_go_downwards() - node: {node_idx} - extensions_sum: {:?}, split_time_rust: {:?}, split_time_river: {:?}", e_sum.sum(), split_time_rust, split_time_river);
 
         if parent_tau + exp_sample < tau {
+            // We split the current node: because the current node is a
+            // leaf, or because we add a new node along the path
+
             let cumsum = e_sum
                 .iter()
                 .scan(F::zero(), |acc, &x| {
@@ -236,12 +249,12 @@ impl<F: FType> MondrianTree<F> {
 
             return parent_idx;
         } else {
+            // No split, we just update the node and go to the next one
+
             let node = &mut self.nodes[node_idx];
             node.min_list.zip_mut_with(x, |a, b| *a = F::min(*a, *b));
             node.max_list.zip_mut_with(x, |a, b| *a = F::max(*a, *b));
             if !node.is_leaf {
-                // TODO: understand how to make the following without making Rust angry with borrowing rules
-                // node.left = Some(self.extend_mondrian_block(node.left, x, label));
                 if x[node.delta] <= node.xi {
                     let node_left = node.left.unwrap();
                     let node_left_new = Some(self.extend_mondrian_block(node_left, x, label));
@@ -278,23 +291,24 @@ impl<F: FType> MondrianTree<F> {
     ///
     /// Function in River/LightRiver: "learn_one()"
     pub fn partial_fit(&mut self, x: &Array1<F>, y: &String) {
-        // TODO: remove prints, roll back to previous version
         self.root = match self.root {
             None => Some(self.create_leaf(x, y, None)),
             Some(root_idx) => Some(self.extend_mondrian_block(root_idx, x, y)),
         };
+        println!("partial_fit() tree post {}", self);
     }
 
     fn fit(&self) {
         unimplemented!("Make the program first work with 'partial_fit', then implement this")
     }
 
-    /// Function in River/LightRiver: "score_one()"
+    /// Function in River: "_go_downwards()"
     ///
     /// Recursive function to predict probabilities.
     fn predict(&self, x: &Array1<F>, node_idx: usize, p_not_separated_yet: F) -> Array1<F> {
         // println!("predict() - tree {}", self);
         let node = &self.nodes[node_idx];
+
         // Step 1: Calculate the time delta from the parent node.
         let d = node.tau - self.get_parent_tau(node_idx);
 
