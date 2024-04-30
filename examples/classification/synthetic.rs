@@ -9,6 +9,7 @@ use light_river::metrics::traits::ClassificationMetric;
 use light_river::stream::data_stream::DataStream;
 use light_river::stream::iter_csv::IterCsv;
 use ndarray::{s, Array1};
+use num::ToPrimitive;
 use std::borrow::Borrow;
 use std::fs::File;
 use std::time::Instant;
@@ -50,8 +51,10 @@ fn main() {
     println!("labels: {labels:?}, features: {features:?}");
     let mut mf: MondrianForest<f32> = MondrianForest::new(window_size, n_trees, &features, &labels);
 
+    let mut score_total = 0.0;
+
     let transactions = Synthetic::load_data().unwrap();
-    for transaction in transactions {
+    for (idx, transaction) in transactions.enumerate() {
         let data = transaction.unwrap();
 
         let x = data.get_observation();
@@ -64,18 +67,23 @@ fn main() {
         };
         let x_ord = Array1::<f32>::from_vec(features.iter().map(|k| x[k]).collect());
 
-        println!("=M=1 partial_fit {x_ord}");
+        // Skip first sample since tree has still no node
+        if idx != 0 {
+            // let probs = mf.predict_proba(&x_ord);
+            // println!("=M=2 probs: {:?}", probs.to_vec());
+            let score = mf.score(&x_ord, &y);
+            // println!("=M=3 score: {:?}", score);
+            score_total += score;
+            println!(
+                "{score_total} / {idx} = {}",
+                score_total / idx.to_f32().unwrap()
+            );
+        }
+        // if idx == 10 {
+        //     panic!("stop");
+        // }
+        // println!("=M=1 partial_fit {x_ord}");
         mf.partial_fit(&x_ord, &y);
-
-        println!("=M=2 predict_proba");
-        let probs = mf.predict_proba(&x_ord);
-
-        println!("=M=3 probs: {:?}", probs.to_vec());
-
-        let score = mf.score(&x_ord, &y);
-        println!("=M=4 score: {:?}", score);
-
-        println!("");
     }
 
     let elapsed_time = now.elapsed();

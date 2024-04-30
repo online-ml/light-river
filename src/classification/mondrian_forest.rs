@@ -64,7 +64,6 @@ impl<F: FType> MondrianForest<F> {
         // Sum probabilities from each tree
         for tree in &self.trees {
             let probs = tree.predict_proba(x);
-            // println!("predict_proba() - tree {}", tree);
             assert!(
                 !probs.iter().any(|&x| x.is_nan()),
                 "Probability should not be NaN. Found: {:?}.",

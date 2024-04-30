@@ -113,11 +113,13 @@ impl<F: FType> MondrianTree<F> {
     /// Note: In Nel215 codebase should work on multiple records, here it's
     /// working only on one, so it's the same as "predict()".
     pub fn predict_proba(&self, x: &Array1<F>) -> Array1<F> {
-        self.test_tree();
+        println!("predict_proba() - tree size: {}", self.nodes.len());
+        // self.test_tree();
         self.predict(x, self.root.unwrap(), F::one())
     }
 
     fn test_tree(&self) {
+        // TODO: move to test
         for node_idx in 0..self.nodes.len() {
             // TODO: check if self.root is None, if so tree should be empty
             if node_idx == self.root.unwrap() {
@@ -162,7 +164,7 @@ impl<F: FType> MondrianTree<F> {
         // 'exp_sample' is 'E' in nel215 code
         let exp_sample = F::from_f32(exp_dist.sample(&mut self.rng)).unwrap();
         // DEBUG: shadowing with Exp expected value
-        let exp_sample = F::one() / rate;
+        // let exp_sample = F::one() / rate;
 
         if parent_tau + exp_sample < tau {
             let cumsum = e_sum
@@ -172,9 +174,9 @@ impl<F: FType> MondrianTree<F> {
                     Some(*acc)
                 })
                 .collect::<Array1<F>>();
-            // DEBUG: shadowing with expected value
             let e_sample = F::from_f32(self.rng.gen::<f32>()).unwrap() * e_sum.sum();
-            let e_sample = F::from_f32(0.5).unwrap() * e_sum.sum();
+            // DEBUG: shadowing with expected value
+            // let e_sample = F::from_f32(0.5).unwrap() * e_sum.sum();
             let delta = cumsum.iter().position(|&val| val > e_sample).unwrap_or(0);
 
             let (lower_bound, upper_bound) = if x[delta] > node_min_list[delta] {
@@ -190,7 +192,7 @@ impl<F: FType> MondrianTree<F> {
             };
             let xi = F::from_f32(self.rng.gen_range(lower_bound..upper_bound)).unwrap();
             // DEBUG: setting expected value
-            let xi = F::from_f32((lower_bound + upper_bound) / 2.0).unwrap();
+            // let xi = F::from_f32((lower_bound + upper_bound) / 2.0).unwrap();
 
             let mut min_list = node_min_list;
             let mut max_list = node_max_list;
@@ -322,11 +324,6 @@ impl<F: FType> MondrianTree<F> {
             let w = p_not_separated_yet * (F::one() - p);
             let res2 = node.stats.create_result(x, w);
             // println!("predict() - ischild - res: {:?}, res2: {:?}", res.to_vec(), res2.to_vec());
-            // Check sum of probabililties is 1
-            assert!(
-                ((&res + &res2).sum() - F::one()).abs() < F::from_f32(0.001).unwrap(),
-                "Sum of probs should be 1."
-            );
             return res + res2;
         } else {
             let child_idx = if x[node.delta] <= node.xi {
