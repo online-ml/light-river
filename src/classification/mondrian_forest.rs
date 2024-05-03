@@ -69,7 +69,7 @@ impl<F: FType> MondrianForest<F> {
                 "Probability should not be NaN. Found: {:?}.",
                 probs.to_vec()
             );
-            total_probs += &probs; // Assuming `probs` is an Array1<F>
+            total_probs += &probs;
         }
 
         // Average the probabilities by the number of trees

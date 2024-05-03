@@ -50,8 +50,6 @@ impl<F: FType> Node<F> {
     /// e.g. y=2, stats.counts=[0, 1, 10] -> False
     /// e.g. y=2, stats.counts=[0, 0, 10] -> True
     /// e.g. y=1, stats.counts=[0, 0, 10] -> False
-    ///
-    /// From: River function
     pub fn is_dirac(&self, y: usize) -> bool {
         return self.stats.counts.sum() == self.stats.counts[y];
     }
@@ -123,11 +121,6 @@ impl<F: FType> Stats<F> {
     }
     /// Return probabilities of sample 'x' belonging to each class.
     ///
-    /// e.g. probs: [0.1, 0.2, 0.7]
-    ///
-    /// TODO: Remove the assert that check for exact values, I was testing if unit tests make sense, but as
-    /// shown below this does not show the error. The function is just too complex.
-    ///
     /// # Example
     /// ```
     /// use light_river::classification::alias::FType;
@@ -146,15 +139,10 @@ impl<F: FType> Stats<F> {
     ///
     /// let x = Array1::from_vec(vec![1.5, 3.0]);
     /// let probs = stats.predict_proba(&x);
-    /// let expected = vec![0.998075, 0.001924008, 0.0];
-    /// assert!(
-    ///     (probs.clone() - Array1::from_vec(expected)).mapv(|a: f32| a.abs()).iter().all(|&x| x < 1e-4),
-    ///     "Probabilities do not match expected values"
-    /// );
     /// // Check all values inside [0, 1] range
     /// assert!(probs.clone().iter().all(|&x| x >= 0.0 && x <= 1.0), "Probabilities should be in [0, 1] range");
     /// // Check sum is 1
-    /// assert!((probs.clone().sum() - 1.0).abs() < 1e-4, "Sum of probabilities should be 1");
+    /// assert!((probs.clone().sum() - 1.0f32).abs() < 1e-4, "Sum of probabilities should be 1");
     /// ```
     pub fn predict_proba(&self, x: &Array1<F>) -> Array1<F> {
         let mut probs = Array1::zeros(self.num_labels);
@@ -169,16 +157,14 @@ impl<F: FType> Stats<F> {
             .zip(self.counts.iter())
             .enumerate()
         {
-            // println!("predict_proba() - mid - index: {:?}, sum: {:?}, sq_sum: {:?}, count: {:?}", index, sum.to_vec(), sq_sum.to_vec(), count);
-            let epsilon = F::epsilon(); // F::from_f32(1e-9).unwrap();
+            let epsilon = F::epsilon();
             let count_f = F::from_usize(count).unwrap();
             let avg = &sum / count_f;
             let var = (&sq_sum / count_f) - (&avg * &avg) + epsilon;
             let sigma = (&var * count_f) / (count_f - F::one() + epsilon);
-            // println!("predict_proba() - mid - avg: {:?}, var: {:?}, sigma: {:?}", avg.to_vec(), var.to_vec(), sigma.to_vec());
             let pi = F::from_f32(std::f32::consts::PI).unwrap() * F::from_f32(2.0).unwrap();
             let z = pi.powi(x.len() as i32) * sigma.mapv(|s| s * s).sum().sqrt();
-            // Same as dot product
+            // Dot product
             let dot_feature = (&(x - &avg) * &(x - &avg)).sum();
             let dot_sigma = (&sigma * &sigma).sum();
             let exponent = -F::from_f32(0.5).unwrap() * dot_feature / dot_sigma;
@@ -192,9 +178,6 @@ impl<F: FType> Stats<F> {
             probs[index] = prob;
         }
 
-        // println!("predict_proba() post - probs: {:?}", probs.to_vec());
-        // println!();
-
         // Check at least one probability is non-zero. Otherwise we have division by zero.
         assert!(
             !probs.iter().all(|&x| x == F::zero()),
@@ -205,6 +188,7 @@ impl<F: FType> Stats<F> {
         for prob in probs.iter_mut() {
             *prob /= sum_prob;
         }
+        // println!("predict_proba() post - probs: {:?}", probs.to_vec());
         probs
     }
 }

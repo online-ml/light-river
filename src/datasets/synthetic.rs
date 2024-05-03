@@ -8,14 +8,11 @@ use std::{fs::File, path::Path};
 /// Add 'synthetic.csv' to project root directory.
 pub struct Synthetic;
 impl Synthetic {
-    pub fn load_data() -> Result<IterCsv<f32, File>, Box<dyn std::error::Error>> {
+    pub fn load_data() -> IterCsv<f32, File> {
         // let file_name = "syntetic_dataset_paper.csv";
         let file_name = "syntetic_dataset_int.csv";
-        let file = File::open(file_name)?;
+        let file = File::open(file_name).unwrap();
         let y_cols = Some(Target::Name("label".to_string()));
-        match IterCsv::<f32, File>::new(file, y_cols) {
-            Ok(x) => Ok(x),
-            Err(e) => Err(Box::new(e)),
-        }
+        IterCsv::<f32, File>::new(file, y_cols).unwrap()
     }
 }

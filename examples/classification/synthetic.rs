@@ -4,9 +4,6 @@ use light_river::classification::mondrian_tree::MondrianTree;
 use light_river::common::ClassifierOutput;
 use light_river::common::ClassifierTarget;
 use light_river::datasets::synthetic::Synthetic;
-use light_river::metrics::rocauc::ROCAUC;
-use light_river::metrics::traits::ClassificationMetric;
-use light_river::stream::data_stream::DataStream;
 use light_river::stream::iter_csv::IterCsv;
 use ndarray::{s, Array1};
 use num::ToPrimitive;
@@ -43,17 +40,16 @@ fn main() {
     let window_size: usize = 1000;
     let n_trees: usize = 1;
 
-    let transactions_f = Synthetic::load_data().unwrap();
+    let transactions_f = Synthetic::load_data();
     let features = get_features(transactions_f);
 
-    let transactions_c = Synthetic::load_data().unwrap();
+    let transactions_c = Synthetic::load_data();
     let labels = get_labels(transactions_c);
     println!("labels: {labels:?}, features: {features:?}");
     let mut mf: MondrianForest<f32> = MondrianForest::new(window_size, n_trees, &features, &labels);
-
     let mut score_total = 0.0;
 
-    let transactions = Synthetic::load_data().unwrap();
+    let transactions = Synthetic::load_data();
     for (idx, transaction) in transactions.enumerate() {
         let data = transaction.unwrap();
 

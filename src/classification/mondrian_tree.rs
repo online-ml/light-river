@@ -113,7 +113,7 @@ impl<F: FType> MondrianTree<F> {
     /// Note: In Nel215 codebase should work on multiple records, here it's
     /// working only on one, so it's the same as "predict()".
     pub fn predict_proba(&self, x: &Array1<F>) -> Array1<F> {
-        println!("predict_proba() - tree size: {}", self.nodes.len());
+        // println!("predict_proba() - tree size: {}", self.nodes.len());
         // self.test_tree();
         self.predict(x, self.root.unwrap(), F::one())
     }
@@ -155,10 +155,10 @@ impl<F: FType> MondrianTree<F> {
         extensions_sum: F,
     ) -> F {
         if self.nodes[node_idx].is_dirac(y) {
-            println!(
-                "go_downwards() - node: {node_idx} - extensions_sum: {:?} - all same class",
-                extensions_sum
-            );
+            // println!(
+            //     "go_downwards() - node: {node_idx} - extensions_sum: {:?} - all same class",
+            //     extensions_sum
+            // );
             return F::zero();
         }
 
@@ -167,10 +167,10 @@ impl<F: FType> MondrianTree<F> {
 
             // From River: If the node is a leaf we must split it
             if self.nodes[node_idx].is_leaf {
-                println!(
-                    "go_downwards() - node: {node_idx} - extensions_sum: {:?} - split is_leaf",
-                    extensions_sum
-                );
+                // println!(
+                //     "go_downwards() - node: {node_idx} - extensions_sum: {:?} - split is_leaf",
+                //     extensions_sum
+                // );
                 return split_time;
             }
 
@@ -180,19 +180,18 @@ impl<F: FType> MondrianTree<F> {
             let child_time = self.nodes[child_idx].time;
             // 2. We check if splitting time occurs before child creation time
             if split_time < child_time {
-                println!(
-                    "go_downwards() - node: {node_idx} - extensions_sum: {:?} - split mid tree",
-                    extensions_sum
-                );
-                // Go to next child????
+                // println!(
+                //     "go_downwards() - node: {node_idx} - extensions_sum: {:?} - split mid tree",
+                //     extensions_sum
+                // );
                 return split_time;
             }
-            println!("go_downwards() - node: {node_idx} - extensions_sum: {:?} - not increased enough to split (mid node)", extensions_sum);
+            // println!("go_downwards() - node: {node_idx} - extensions_sum: {:?} - not increased enough to split (mid node)", extensions_sum);
         } else {
-            println!(
-                "go_downwards() - node: {node_idx} - extensions_sum: {:?} - not outside box",
-                extensions_sum
-            );
+            // println!(
+            //     "go_downwards() - node: {node_idx} - extensions_sum: {:?} - not outside box",
+            //     extensions_sum
+            // );
         }
 
         F::zero()
@@ -345,48 +344,34 @@ impl<F: FType> MondrianTree<F> {
             None => Some(self.create_leaf(x, y, None, F::zero())),
             Some(root_idx) => Some(self.go_downwards(root_idx, x, y)),
         };
-        println!("partial_fit() tree post {}", self);
+        // println!("partial_fit() tree post {}", self);
     }
 
     fn fit(&self) {
         unimplemented!("Make the program first work with 'partial_fit', then implement this")
     }
 
-    /// Function in River: "go_downwards()"
-    ///
-    /// Recursive function to predict probabilities.
     fn predict(&self, x: &Array1<F>, node_idx: usize, p_not_separated_yet: F) -> Array1<F> {
         let node = &self.nodes[node_idx];
 
-        // Step 1: Calculate the time feature from the parent node.
-        let d = node.time - self.get_parent_time(node_idx);
-
-        // Step 2: If 'x' is outside the box, calculate distance of 'x' from the box
-        let dist_max = (x - &node.max_list).mapv(|v| F::max(v, F::zero()));
-        let dist_min = (&node.min_list - x).mapv(|v| F::max(v, F::zero()));
-        let eta = dist_min.sum() + dist_max.sum();
-        // It works, but check again once 'max_list' and 'min_list' are not 0s
-        // println!("x: {:?}, node.max_list {:?}, max(max_list) {:?}, node.min_list {:?}, max(min_list) {:?}",
-        //  x.to_vec(), node.max_list.to_vec(), dist_max.to_vec(), node.min_list.to_vec(), dist_min.to_vec());
-
-        // Step 3: Probability 'p' of the box not splitting.
+        // Probability 'p' of the box not splitting.
         //     eta (box dist): larger distance, more prob of splitting
-        //     d (time diff with parent): more dist with parent, more prob of splitting
-        let p = F::one() - (-d * eta).exp();
-        // println!("predict() -> pre  create_result() - node_idx {}", node.stats);
+        //     d (time delta with parent): more dist with parent, more prob of splitting
+        let p = {
+            let d = node.time - self.get_parent_time(node_idx);
+            // If 'x' is outside the box, calculate distance of 'x' from the box
+            let dist_max = (x - &node.max_list).mapv(|v| F::max(v, F::zero()));
+            let dist_min = (&node.min_list - x).mapv(|v| F::max(v, F::zero()));
+            let eta = dist_min.sum() + dist_max.sum();
+            F::one() - (-d * eta).exp()
+        };
 
-        // Step 4: Generate a result for the current node using its statistics.
+        // Generate a result for the current node using its statistics.
         let res = node.stats.create_result(x, p_not_separated_yet * p);
-        // println!("predict() -> post create_result() - node.stats: {}", node.stats);
-        // println!(
-        //     "predict() - res: {:?}, p_not_separated_yet: {:?}, p: {:?}",
-        //     res, p_not_separated_yet, p
-        // );
 
+        let w = p_not_separated_yet * (F::one() - p);
         if node.is_leaf {
-            let w = p_not_separated_yet * (F::one() - p);
             let res2 = node.stats.create_result(x, w);
-            // println!("predict() - ischild - res: {:?}, res2: {:?}", res.to_vec(), res2.to_vec());
             return res + res2;
         } else {
             let child_idx = if x[node.feature] <= node.threshold {
@@ -394,9 +379,7 @@ impl<F: FType> MondrianTree<F> {
             } else {
                 node.right
             };
-            let child_res =
-                self.predict(x, child_idx.unwrap(), p_not_separated_yet * (F::one() - p));
-            // println!("predict() - notchild - res: {:?}, child_res: {:?}", res.to_vec(), child_res.to_vec());
+            let child_res = self.predict(x, child_idx.unwrap(), w);
             return res + child_res;
         }
     }
