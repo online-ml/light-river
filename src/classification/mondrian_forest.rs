@@ -42,7 +42,7 @@ impl<F: FType> MondrianForest<F> {
     /// working only on one.
     ///
     /// Function in River/LightRiver: "learn_one()"
-    pub fn partial_fit(&mut self, x: &Array1<F>, y: &String) {
+    pub fn partial_fit(&mut self, x: &Array1<F>, y: usize) {
         for tree in &mut self.trees {
             tree.partial_fit(x, y);
         }
@@ -78,16 +78,15 @@ impl<F: FType> MondrianForest<F> {
         total_probs
     }
 
-    pub fn score(&mut self, x: &Array1<F>, y: &String) -> F {
+    pub fn score(&mut self, x: &Array1<F>, y: usize) -> F {
         let probs = self.predict_proba(x);
-        let y_idx = self.labels.iter().position(|l| l == y).unwrap();
         let pred_idx = probs
             .iter()
             .enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             .map(|(idx, _)| idx)
             .unwrap();
-        if pred_idx == y_idx {
+        if pred_idx == y {
             F::one()
         } else {
             F::zero()

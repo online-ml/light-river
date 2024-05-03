@@ -69,12 +69,14 @@ fn main() {
             ClassifierTarget::String(y) => y,
             _ => unimplemented!(),
         };
+        let y = labels.clone().iter().position(|l| l == &y).unwrap();
+
         let x_ord = Array1::<f32>::from_vec(features.iter().map(|k| x[k]).collect());
         // DEBUG: remove it
         // let x_ord = x_ord.slice(s![0..2]).to_owned();
 
         println!("=M=1 partial_fit");
-        mf.partial_fit(&x_ord, &y);
+        mf.partial_fit(&x_ord, y);
 
         println!("=M=2 predict_proba");
         let score = mf.predict_proba(&x_ord);

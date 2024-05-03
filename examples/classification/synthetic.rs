@@ -65,13 +65,15 @@ fn main() {
             ClassifierTarget::String(y) => y,
             _ => unimplemented!(),
         };
+        let y = labels.clone().iter().position(|l| l == &y).unwrap();
+
         let x_ord = Array1::<f32>::from_vec(features.iter().map(|k| x[k]).collect());
 
         // Skip first sample since tree has still no node
         if idx != 0 {
             // let probs = mf.predict_proba(&x_ord);
             // println!("=M=2 probs: {:?}", probs.to_vec());
-            let score = mf.score(&x_ord, &y);
+            let score = mf.score(&x_ord, y);
             // println!("=M=3 score: {:?}", score);
             score_total += score;
 
@@ -84,7 +86,7 @@ fn main() {
         //     panic!("stop");
         // }
         println!("=M=1 partial_fit {x_ord}");
-        mf.partial_fit(&x_ord, &y);
+        mf.partial_fit(&x_ord, y);
     }
 
     let elapsed_time = now.elapsed();
