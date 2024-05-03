@@ -9,7 +9,8 @@ use std::{fs::File, path::Path};
 pub struct Synthetic;
 impl Synthetic {
     pub fn load_data() -> Result<IterCsv<f32, File>, Box<dyn std::error::Error>> {
-        let file_name = "syntetic_dataset_paper.csv";
+        // let file_name = "syntetic_dataset_paper.csv";
+        let file_name = "syntetic_dataset_int.csv";
         let file = File::open(file_name)?;
         let y_cols = Some(Target::Name("label".to_string()));
         match IterCsv::<f32, File>::new(file, y_cols) {

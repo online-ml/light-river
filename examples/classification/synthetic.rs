@@ -74,6 +74,7 @@ fn main() {
             let score = mf.score(&x_ord, &y);
             // println!("=M=3 score: {:?}", score);
             score_total += score;
+
             println!(
                 "{score_total} / {idx} = {}",
                 score_total / idx.to_f32().unwrap()

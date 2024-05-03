@@ -30,7 +30,7 @@ pub struct Node<F> {
     pub is_leaf: bool,
     pub min_list: Array1<F>, // Lists representing the minimum and maximum values of the data points contained in the current node
     pub max_list: Array1<F>,
-    pub delta: usize,         // Dimension in which a split occurs (?)
+    pub delta: usize,         // Dimension in which a split occurs
     pub xi: F,                // Split point along the dimension specified by delta
     pub left: Option<usize>,  // Option<Rc<RefCell<Node<F>>>>,
     pub right: Option<usize>, // Option<Rc<RefCell<Node<F>>>>,
@@ -41,18 +41,19 @@ impl<F: FType> Node<F> {
         self.stats.add(x, label_idx);
     }
     pub fn update_internal(&self, left_s: &Stats<F>, right_s: &Stats<F>) -> Stats<F> {
-        // match (left_s, right_s) {
-        //     (Some(left), Some(right)) => left.merge(right),
-        //     (None, Some(right)) => unimplemented!("uncomment the following"), // right.clone(),
-        //     (Some(left), None) => unimplemented!("uncomment the following"),  // left.clone(),
-        //     (None, None) => unimplemented!(
-        //         "Both left and right stats are None. Should I return simply 'self.stats'?"
-        //     ),
-        // }
         left_s.merge(right_s)
     }
     pub fn get_parent_tau(&self) -> F {
         panic!("Implemented in 'mondrian_tree' instead of 'mondrian_node'")
+    }
+    /// Check if all the labels are the same in the node.
+    /// e.g. y=2, stats.counts=[0, 1, 10] -> False
+    /// e.g. y=2, stats.counts=[0, 0, 10] -> True
+    /// e.g. y=1, stats.counts=[0, 0, 10] -> False
+    ///
+    /// From: River function
+    pub fn is_dirac(&self, y: usize) -> bool {
+        return self.stats.counts.sum() == self.stats.counts[y];
     }
 }
 
