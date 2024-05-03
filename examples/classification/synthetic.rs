@@ -1,13 +1,11 @@
-use light_river::classification::alias::FType;
 use light_river::classification::mondrian_forest::MondrianForest;
-use light_river::classification::mondrian_tree::MondrianTree;
-use light_river::common::ClassifierOutput;
+
 use light_river::common::ClassifierTarget;
 use light_river::datasets::synthetic::Synthetic;
 use light_river::stream::iter_csv::IterCsv;
-use ndarray::{s, Array1};
+use ndarray::Array1;
 use num::ToPrimitive;
-use std::borrow::Borrow;
+
 use std::fs::File;
 use std::time::Instant;
 

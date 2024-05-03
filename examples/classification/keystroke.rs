@@ -1,15 +1,11 @@
-use light_river::classification::alias::FType;
 use light_river::classification::mondrian_forest::MondrianForest;
-use light_river::classification::mondrian_tree::MondrianTree;
-use light_river::common::ClassifierOutput;
+
 use light_river::common::ClassifierTarget;
 use light_river::datasets::keystroke::Keystroke;
-use light_river::metrics::rocauc::ROCAUC;
-use light_river::metrics::traits::ClassificationMetric;
-use light_river::stream::data_stream::DataStream;
+
 use light_river::stream::iter_csv::IterCsv;
-use ndarray::{s, Array1};
-use std::borrow::Borrow;
+use ndarray::Array1;
+
 use std::fs::File;
 use std::time::Instant;
 

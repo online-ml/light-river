@@ -1,25 +1,14 @@
 use crate::classification::alias::FType;
-use crate::common::{ClassifierOutput, ClassifierTarget, Observation};
-use crate::stream::data_stream::Data;
-use core::iter::zip;
-use ndarray::{array, Array3};
+
 use ndarray::{Array1, Array2};
-use ndarray::{ArrayBase, Dim, ScalarOperand, ViewRepr};
-use num::pow::Pow;
-use num::traits::float;
+
 use num::{Float, FromPrimitive};
-use rand::prelude::*;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::convert::TryFrom;
-use std::env::consts;
+
 use std::fmt;
-use std::iter::FlatMap;
-use std::ops::{Add, Div, Mul, Sub};
-use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
-use std::rc::Rc;
-use std::rc::Weak;
-use std::{clone, cmp, mem, usize};
+
+use std::ops::Add;
+
+use std::usize;
 
 /// Node struct
 #[derive(Clone)]

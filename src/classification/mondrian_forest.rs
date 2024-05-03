@@ -1,25 +1,14 @@
 use crate::classification::alias::FType;
 use crate::classification::mondrian_tree::MondrianTree;
-use crate::common::{ClassifierOutput, ClassifierTarget, Observation};
-use crate::stream::data_stream::Data;
-use core::iter::zip;
-use ndarray::array;
-use ndarray::{arr1, Array1, Array2};
-use ndarray::{ArrayBase, Dim, ScalarOperand, ViewRepr};
-use num::pow::Pow;
-use num::traits::float;
+
+use ndarray::Array1;
+
 use num::{Float, FromPrimitive};
 use rand::prelude::*;
-use std::cell::RefCell;
+
 use std::collections::HashMap;
-use std::convert::TryFrom;
-use std::env::consts;
-use std::iter::FlatMap;
-use std::ops::{Add, Div, Mul, Sub};
-use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
-use std::rc::Rc;
-use std::rc::Weak;
-use std::{cmp, mem, usize};
+
+use std::usize;
 
 pub struct MondrianForest<F: FType> {
     trees: Vec<MondrianTree<F>>,

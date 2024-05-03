@@ -1,7 +1,6 @@
-use crate::datasets::utils;
 use crate::stream::data_stream::Target;
 use crate::stream::iter_csv::IterCsv;
-use std::{fs::File, path::Path};
+use std::fs::File;
 
 /// ChatGPT Generated synthetic dataset.
 ///
