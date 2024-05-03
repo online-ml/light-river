@@ -23,7 +23,7 @@ impl Keystroke {
         let file_name = "keystroke.csv";
 
         if !Path::new(file_name).exists() {
-            utils::download_csv_file(url, file_name)?
+            utils::download_csv_file(url, file_name);
         }
         let file = File::open(file_name)?;
         let y_cols = Some(Target::Name("subject".to_string()));
