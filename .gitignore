@@ -7,3 +7,4 @@ target/
 # Local configuration
 .cargo/config.toml
 /.venv*/
+generate_data_synthetic.py

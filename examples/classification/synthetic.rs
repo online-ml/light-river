@@ -34,7 +34,6 @@ fn get_labels(transactions: IterCsv<f32, File>) -> Vec<String> {
 }
 
 fn main() {
-    let now = Instant::now();
     let n_trees: usize = 1;
 
     let transactions_f = Synthetic::load_data();
@@ -46,6 +45,8 @@ fn main() {
     let mut mf: MondrianForestClassifier<f32> =
         MondrianForestClassifier::new(n_trees, features.len(), labels.len());
     let mut score_total = 0.0;
+
+    let now = Instant::now();
 
     let transactions = Synthetic::load_data();
     for (idx, transaction) in transactions.enumerate() {
@@ -71,13 +72,19 @@ fn main() {
             // println!("=M=3 score: {:?}", score);
             score_total += score;
 
+            // println!(
+            //     "{score_total} / {idx} = {}",
+            //     score_total / idx.to_f32().unwrap()
+            // );
+        }
+        if idx == 100_000 - 1 {
             println!(
-                "{score_total} / {idx} = {}",
+                "Accuracy: {score_total} / {idx} = {}",
                 score_total / idx.to_f32().unwrap()
             );
         }
 
-        println!("=M=1 partial_fit {x_ord}");
+        // println!("=M=1 partial_fit {x_ord}");
         mf.partial_fit(&x_ord, y);
     }
 
