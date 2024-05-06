@@ -1,4 +1,4 @@
-use light_river::classification::mondrian_forest::MondrianForest;
+use light_river::classification::mondrian_forest::MondrianForestClassifier;
 
 use light_river::common::ClassifierTarget;
 use light_river::datasets::synthetic::Synthetic;
@@ -35,7 +35,6 @@ fn get_labels(transactions: IterCsv<f32, File>) -> Vec<String> {
 
 fn main() {
     let now = Instant::now();
-    let window_size: usize = 1000;
     let n_trees: usize = 1;
 
     let transactions_f = Synthetic::load_data();
@@ -44,7 +43,8 @@ fn main() {
     let transactions_c = Synthetic::load_data();
     let labels = get_labels(transactions_c);
     println!("labels: {labels:?}, features: {features:?}");
-    let mut mf: MondrianForest<f32> = MondrianForest::new(window_size, n_trees, &features, &labels);
+    let mut mf: MondrianForestClassifier<f32> =
+        MondrianForestClassifier::new(n_trees, features.len(), labels.len());
     let mut score_total = 0.0;
 
     let transactions = Synthetic::load_data();
@@ -76,9 +76,7 @@ fn main() {
                 score_total / idx.to_f32().unwrap()
             );
         }
-        // if idx == 10 {
-        //     panic!("stop");
-        // }
+
         println!("=M=1 partial_fit {x_ord}");
         mf.partial_fit(&x_ord, y);
     }

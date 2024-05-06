@@ -13,9 +13,8 @@ use std::usize;
 /// Node struct
 #[derive(Clone)]
 pub struct Node<F> {
-    // Change 'Rc' to 'Weak'
-    pub parent: Option<usize>, // Option<Rc<RefCell<Node<F>>>>,
-    pub time: F,               // Time: how much I increased the size of the box
+    pub parent: Option<usize>,
+    pub time: F, // Time: how much I increased the size of the box
     pub is_leaf: bool,
     pub min_list: Array1<F>, // Lists representing the minimum and maximum values of the data points contained in the current node
     pub max_list: Array1<F>,
@@ -31,9 +30,6 @@ impl<F: FType> Node<F> {
     }
     pub fn update_internal(&self, left_s: &Stats<F>, right_s: &Stats<F>) -> Stats<F> {
         left_s.merge(right_s)
-    }
-    pub fn get_parent_time(&self) -> F {
-        panic!("Implemented in 'mondrian_tree' instead of 'mondrian_node'")
     }
     /// Check if all the labels are the same in the node.
     /// e.g. y=2, stats.counts=[0, 1, 10] -> False
@@ -52,7 +48,7 @@ pub struct Stats<F> {
     pub sums: Array2<F>,
     pub sq_sums: Array2<F>,
     pub counts: Array1<usize>,
-    num_labels: usize,
+    n_labels: usize,
 }
 impl<F: FType + fmt::Display> fmt::Display for Stats<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -75,12 +71,12 @@ impl<F: FType + fmt::Display> fmt::Display for Stats<F> {
     }
 }
 impl<F: FType> Stats<F> {
-    pub fn new(num_labels: usize, feature_dim: usize) -> Self {
+    pub fn new(n_labels: usize, n_features: usize) -> Self {
         Stats {
-            sums: Array2::zeros((num_labels, feature_dim)),
-            sq_sums: Array2::zeros((num_labels, feature_dim)),
-            counts: Array1::zeros(num_labels),
-            num_labels,
+            sums: Array2::zeros((n_labels, n_features)),
+            sq_sums: Array2::zeros((n_labels, n_features)),
+            counts: Array1::zeros(n_labels),
+            n_labels,
         }
     }
     pub fn create_result(&self, x: &Array1<F>, w: F) -> Array1<F> {
@@ -88,7 +84,7 @@ impl<F: FType> Stats<F> {
         probs * w
     }
     pub fn add(&mut self, x: &Array1<F>, y: usize) {
-        // Same as: self.sums[label] += x;
+        // Same as: self.sums[y] += x;
         self.sums.row_mut(y).zip_mut_with(&x, |a, &b| *a += b);
 
         // Same as: self.sq_sums[y] += x*x;
@@ -105,7 +101,7 @@ impl<F: FType> Stats<F> {
             sums: self.sums.clone() + &s.sums,
             sq_sums: self.sq_sums.clone() + &s.sq_sums,
             counts: self.counts.clone() + &s.counts,
-            num_labels: self.num_labels,
+            n_labels: self.n_labels,
         }
     }
     /// Return probabilities of sample 'x' belonging to each class.
@@ -134,7 +130,7 @@ impl<F: FType> Stats<F> {
     /// assert!((probs.clone().sum() - 1.0f32).abs() < 1e-4, "Sum of probabilities should be 1");
     /// ```
     pub fn predict_proba(&self, x: &Array1<F>) -> Array1<F> {
-        let mut probs = Array1::zeros(self.num_labels);
+        let mut probs = Array1::zeros(self.n_labels);
         let mut sum_prob = F::zero();
 
         // println!("predict_proba() - start {}", self);

@@ -1,5 +1,5 @@
 use crate::classification::alias::FType;
-use crate::classification::mondrian_tree::MondrianTree;
+use crate::classification::mondrian_tree::MondrianTreeClassifier;
 
 use ndarray::Array1;
 
@@ -10,21 +10,15 @@ use std::collections::HashMap;
 
 use std::usize;
 
-pub struct MondrianForest<F: FType> {
-    trees: Vec<MondrianTree<F>>,
-    labels: Vec<String>,
+pub struct MondrianForestClassifier<F: FType> {
+    trees: Vec<MondrianTreeClassifier<F>>,
+    n_labels: usize,
 }
-impl<F: FType> MondrianForest<F> {
-    pub fn new(
-        window_size: usize,
-        n_trees: usize,
-        features: &Vec<String>,
-        labels: &Vec<String>,
-    ) -> Self {
-        let tree_default = MondrianTree::new(window_size, features, labels);
+impl<F: FType> MondrianForestClassifier<F> {
+    pub fn new(n_trees: usize, n_features: usize, n_labels: usize) -> Self {
+        let tree_default = MondrianTreeClassifier::new(n_features, n_labels);
         let trees = vec![tree_default; n_trees];
-        let labels = labels.clone();
-        MondrianForest::<F> { trees, labels }
+        MondrianForestClassifier::<F> { trees, n_labels }
     }
 
     /// Note: In Nel215 codebase should work on multiple records, here it's
@@ -37,20 +31,8 @@ impl<F: FType> MondrianForest<F> {
         }
     }
 
-    pub fn fit(x: &HashMap<String, f32>, y: &String) {
-        unimplemented!()
-    }
-
     pub fn predict_proba(&self, x: &Array1<F>) -> Array1<F> {
-        // scores shape in nel215: (n_trees, n_samples, n_labels)
-        // scores shape here: (n_trees, n_labels). We are doing one shot learning.
-        let n_trees = self.trees.len();
-        let n_labels = self.labels.len();
-
-        // Initialize an accumulator array for summing probabilities from each tree
-        let mut total_probs = Array1::<F>::zeros(n_labels);
-
-        // Sum probabilities from each tree
+        let mut tot_probs = Array1::<F>::zeros(self.n_labels);
         for tree in &self.trees {
             let probs = tree.predict_proba(x);
             assert!(
@@ -58,13 +40,10 @@ impl<F: FType> MondrianForest<F> {
                 "Probability should not be NaN. Found: {:?}.",
                 probs.to_vec()
             );
-            total_probs += &probs;
+            tot_probs += &probs;
         }
-
-        // Average the probabilities by the number of trees
-        total_probs /= F::from_usize(n_trees).unwrap();
-
-        total_probs
+        tot_probs /= F::from_usize(self.trees.len()).unwrap();
+        tot_probs
     }
 
     pub fn score(&mut self, x: &Array1<F>, y: usize) -> F {
