@@ -1,4 +1,4 @@
-use light_river::classification::mondrian_forest::MondrianForest;
+use light_river::classification::mondrian_forest::MondrianForestClassifier;
 
 use light_river::common::ClassifierTarget;
 use light_river::datasets::keystroke::Keystroke;
@@ -51,7 +51,8 @@ fn main() {
     // DEBUG: remove it
     // let labels = labels[0..3].to_vec();
     println!("labels: {labels:?}");
-    let mut mf: MondrianForest<f32> = MondrianForest::new(window_size, n_trees, &features, &labels);
+    let mut mf: MondrianForestClassifier<f32> =
+        MondrianForestClassifier::new(n_trees, features.len(), labels.len());
 
     let transactions = Keystroke::load_data().unwrap();
     for transaction in transactions {
