@@ -24,6 +24,20 @@ pub struct Node<F> {
     pub right: Option<usize>,
     pub stats: Stats<F>,
 }
+impl<F: FType + fmt::Display> fmt::Display for Node<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Node<time={:.3}, min={:?}, max={:?}, counts={:?}>",
+            self.time,
+            self.min_list.to_vec(),
+            self.max_list.to_vec(),
+            self.stats.counts.to_vec(),
+        )?;
+        Ok(())
+    }
+}
+
 impl<F: FType> Node<F> {
     pub fn update_leaf(&mut self, x: &Array1<F>, y: usize) {
         self.stats.add(x, y);
