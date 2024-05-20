@@ -72,14 +72,7 @@ impl<F: FType> MondrianTreeClassifier<F> {
         }
     }
 
-    fn create_leaf(
-        &mut self,
-        x: &Array1<F>,
-        y: usize,
-        parent: Option<usize>,
-        time: F,
-        update_leaf: bool,
-    ) -> usize {
+    fn create_leaf(&mut self, x: &Array1<F>, y: usize, parent: Option<usize>, time: F) -> usize {
         let mut node = Node::<F> {
             parent,
             time, // F::from(1e9).unwrap(), // Very large value
@@ -92,10 +85,7 @@ impl<F: FType> MondrianTreeClassifier<F> {
             right: None,
             stats: Stats::new(self.n_labels, self.n_features),
         };
-        // TODO: check if 'update_leaf' is used
-        if update_leaf {
-            node.update_leaf(x, y);
-        }
+        node.update_leaf(x, y);
         self.nodes.push(node);
         let node_idx = self.nodes.len() - 1;
         node_idx
@@ -252,7 +242,7 @@ impl<F: FType> MondrianTreeClassifier<F> {
 
             self.nodes.push(parent_node);
             let parent_idx = self.nodes.len() - 1;
-            let sibling_idx = self.create_leaf(x, y, Some(parent_idx), split_time, true);
+            let sibling_idx = self.create_leaf(x, y, Some(parent_idx), split_time);
 
             // println!(
             //     "sibling_idx: {}, sibling: {}",
@@ -340,18 +330,18 @@ impl<F: FType> MondrianTreeClassifier<F> {
     /// Function in River/LightRiver: "learn_one()"
     pub fn partial_fit(&mut self, x: &Array1<F>, y: usize) {
         self.root = match self.root {
-            None => Some(self.create_leaf(x, y, None, F::zero(), true)),
+            None => Some(self.create_leaf(x, y, None, F::zero())),
             Some(root_idx) => Some(self.go_downwards(root_idx, x, y)),
         };
-        println!("partial_fit() tree post {}", self);
+        // println!("partial_fit() tree post {}", self);
     }
 
     fn fit(&self) {
         unimplemented!("Make the program first work with 'partial_fit', then implement this")
     }
 
-    /// Note: In Nel215 codebase should work on multiple records, here it's
-    /// working only on one, so it's the same as "predict()".
+    /// Note: In Nel215 codebase should work on multiple records. Here it only works
+    /// as public interface for predict().
     pub fn predict_proba(&self, x: &Array1<F>) -> Array1<F> {
         // println!("predict_proba() - tree size: {}", self.nodes.len());
         // self.test_tree();
@@ -396,5 +386,9 @@ impl<F: FType> MondrianTreeClassifier<F> {
             Some(parent_idx) => self.nodes[parent_idx].time,
             None => F::from_f32(0.0).unwrap(),
         }
+    }
+
+    pub fn get_tree_size(&self) -> usize {
+        self.nodes.len()
     }
 }

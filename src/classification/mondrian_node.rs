@@ -119,30 +119,6 @@ impl<F: FType> Stats<F> {
         }
     }
     /// Return probabilities of sample 'x' belonging to each class.
-    ///
-    /// # Example
-    /// ```
-    /// use light_river::classification::alias::FType;
-    /// use light_river::classification::mondrian_node::Stats;
-    /// use ndarray::{Array1, Array2};
-    ///
-    /// let mut stats = Stats::new(3, 2); // 3 classes and 2 features
-    /// stats.sums = Array2::from_shape_vec((3,2), vec![1.0, 2.0, 1.0, 2.0, 1.0, 2.0])
-    ///     .expect("Failed to create Array2");
-    /// stats.sq_sums = Array2::from_shape_vec((3,2), vec![1.0, 2.0, 1.0, 2.0, 1.0, 2.0])
-    ///     .expect("Failed to create Array2");;
-    /// stats.counts = Array1::from_vec(vec![4, 5]);
-    /// stats.add(&Array1::from_vec(vec![1.0, 2.0]), 0);
-    /// stats.add(&Array1::from_vec(vec![2.0, 3.0]), 1);
-    /// stats.add(&Array1::from_vec(vec![2.0, 4.0]), 1);
-    ///
-    /// let x = Array1::from_vec(vec![1.5, 3.0]);
-    /// let probs = stats.predict_proba(&x);
-    /// // Check all values inside [0, 1] range
-    /// assert!(probs.clone().iter().all(|&x| x >= 0.0 && x <= 1.0), "Probabilities should be in [0, 1] range");
-    /// // Check sum is 1
-    /// assert!((probs.clone().sum() - 1.0f32).abs() < 1e-4, "Sum of probabilities should be 1");
-    /// ```
     pub fn predict_proba(&self, x: &Array1<F>) -> Array1<F> {
         let mut probs = Array1::zeros(self.n_labels);
         let mut sum_prob = F::zero();

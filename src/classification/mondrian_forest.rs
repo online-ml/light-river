@@ -60,4 +60,8 @@ impl<F: FType> MondrianForestClassifier<F> {
             F::zero()
         }
     }
+
+    pub fn get_forest_size(&self) -> Vec<usize> {
+        self.trees.iter().map(|t| t.get_tree_size()).collect()
+    }
 }
