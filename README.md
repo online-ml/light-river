@@ -44,7 +44,7 @@ cargo run --release --example credit_card
 ### 📊 Classification
 
 ```sh
-RUSTFLAGS=-Awarnings cargo run --release --example synthetic
+RUSTFLAGS=-Awarnings cargo run --example synthetic
 ```
 
 ### 🛒 Recsys

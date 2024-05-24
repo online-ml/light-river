@@ -35,7 +35,7 @@ impl<F: FType> MondrianForestClassifier<F> {
         let mut tot_probs = Array1::<F>::zeros(self.n_labels);
         for tree in &self.trees {
             let probs = tree.predict_proba(x);
-            assert!(
+            debug_assert!(
                 !probs.iter().any(|&x| x.is_nan()),
                 "Probability should not be NaN. Found: {:?}.",
                 probs.to_vec()

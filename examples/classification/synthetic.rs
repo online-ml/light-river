@@ -79,12 +79,12 @@ fn main() {
         if idx != 0 {
             let score = mf.score(&x, y);
             score_total += score;
-            // println!(
-            //     "Accuracy: {} / {} = {}",
-            //     score_total,
-            //     dataset_size - 1,
-            //     score_total / idx.to_f32().unwrap()
-            // );
+            println!(
+                "Accuracy: {} / {} = {}",
+                score_total,
+                dataset_size - 1,
+                score_total / idx.to_f32().unwrap()
+            );
         }
 
         // println!("=M=1 partial_fit {x}");

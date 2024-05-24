@@ -2,7 +2,7 @@ use crate::classification::alias::FType;
 
 use ndarray::{Array1, Array2};
 
-use num::{Float, FromPrimitive};
+use num::{Float, FromPrimitive, ToPrimitive};
 
 use std::fmt;
 
@@ -16,8 +16,8 @@ pub struct Node<F> {
     pub parent: Option<usize>,
     pub time: F, // Time: how much I increased the size of the box
     pub is_leaf: bool,
-    pub min_list: Array1<F>, // Lists representing the minimum and maximum values of the data points contained in the current node
-    pub max_list: Array1<F>,
+    pub range_min: Array1<F>, // Lists representing the minimum and maximum values of the data points contained in the current node
+    pub range_max: Array1<F>,
     pub feature: usize, // Feature in which a split occurs
     pub threshold: F,   // Threshold in which the split occures
     pub left: Option<usize>,
@@ -30,8 +30,8 @@ impl<F: FType + fmt::Display> fmt::Display for Node<F> {
             f,
             "Node<time={:.3}, min={:?}, max={:?}, counts={:?}>",
             self.time,
-            self.min_list.to_vec(),
-            self.max_list.to_vec(),
+            self.range_min.to_vec(),
+            self.range_max.to_vec(),
             self.stats.counts.to_vec(),
         )?;
         Ok(())
@@ -121,7 +121,6 @@ impl<F: FType> Stats<F> {
     /// Return probabilities of sample 'x' belonging to each class.
     pub fn predict_proba(&self, x: &Array1<F>) -> Array1<F> {
         let mut probs = Array1::zeros(self.n_labels);
-        let mut sum_prob = F::zero();
 
         // println!("predict_proba() - start {}", self);
 
@@ -146,24 +145,23 @@ impl<F: FType> Stats<F> {
             // epsilon added since exponent.exp() could be zero if exponent is very small
             let mut prob = (exponent.exp() + epsilon) / z;
             if count <= 0 {
-                assert!(prob.is_nan(), "Probabaility should be NaN. Found: {prob}.");
+                debug_assert!(prob.is_nan(), "Probabaility should be NaN. Found: {prob}.");
                 prob = F::zero();
             }
-            sum_prob += prob;
             probs[index] = prob;
         }
 
-        // Check at least one probability is non-zero. Otherwise we have division by zero.
-        assert!(
-            !probs.iter().all(|&x| x == F::zero()),
-            "At least one probability should not be zero. Found: {:?}.",
-            probs.to_vec()
-        );
-
-        for prob in probs.iter_mut() {
-            *prob /= sum_prob;
+        if probs.iter().all(|&x| x == F::zero()) {
+            // [0, 0, 0] -> [0.33, 0.33, 0.33]
+            probs = probs
+                .iter()
+                .map(|_| F::one() / F::from_f32(probs.len().to_f32().unwrap()).unwrap())
+                .collect();
         }
-        // println!("predict_proba() post - probs: {:?}", probs.to_vec());
+        let probs_sum = probs.sum();
+        for prob in probs.iter_mut() {
+            *prob /= probs_sum;
+        }
         probs
     }
 }
