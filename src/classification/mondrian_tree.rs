@@ -53,7 +53,7 @@ impl<F: FType + fmt::Display> MondrianTreeClassifier<F> {
             };
             writeln!(
                 f,
-                "{}{}Node {}: time={:.3}, min={:?}, max={:?}, thrs={:.2}, f={}, counts={}, is_leaf={}",
+                "{}{}Node {}: time={:.3}, min={:?}, max={:?}, thrs={:.2}, f={}, counts={}",
                 // "{}{}Node {}: left={:?}, right={:?}, parent={:?}, time={:.3}, min={:?}, max={:?}, thrs={:.2}, f={}, counts={}",
                 prefix,
                 node_prefix,
@@ -67,7 +67,7 @@ impl<F: FType + fmt::Display> MondrianTreeClassifier<F> {
                 node.threshold,
                 feature,
                 node.stats.counts,
-                node.is_leaf,
+                // node.is_leaf,
             )?;
 
             let mut children = vec![];
@@ -344,8 +344,7 @@ impl<F: FType> MondrianTreeClassifier<F> {
                 // 'stats' copied from River
                 self.nodes[parent_idx].stats = self.nodes[node_idx].stats.clone();
                 self.nodes[node_idx].parent = Some(parent_idx);
-
-                // self.nodes[node_idx].time = split_time;
+                self.nodes[node_idx].time = split_time;
 
                 // I'm 0% sure if this "if" is required.
                 if self.nodes[node_idx].is_leaf {
@@ -419,7 +418,7 @@ impl<F: FType> MondrianTreeClassifier<F> {
             None => Some(self.create_node(x, y, None, F::zero(), true)),
             Some(root_idx) => Some(self.go_downwards(root_idx, x, y)),
         };
-        // println!("partial_fit() tree post {}===========", self);
+        println!("partial_fit() tree post {}===========", self);
     }
 
     fn fit(&self) {
