@@ -89,6 +89,10 @@ fn main() {
 
         // println!("=M=1 partial_fit {x}");
         mf.partial_fit(&x, y);
+
+        // if idx == 163 {
+        //     break;
+        // }
     }
 
     let elapsed_time = now.elapsed();

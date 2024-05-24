@@ -345,14 +345,20 @@ impl<F: FType> MondrianTreeClassifier<F> {
                 self.nodes[parent_idx].stats = self.nodes[node_idx].stats.clone();
                 self.nodes[node_idx].parent = Some(parent_idx);
 
-                self.nodes[node_idx].time = split_time;
-                // From Python: reset child
-                self.nodes[node_idx].range_min = Array1::from_elem(self.n_features, F::infinity());
-                self.nodes[node_idx].range_max = Array1::from_elem(self.n_features, -F::infinity());
-                self.nodes[node_idx].stats = Stats::new(self.n_labels, self.n_features);
+                // self.nodes[node_idx].time = split_time;
 
+                // I'm 0% sure if this "if" is required.
+                if self.nodes[node_idx].is_leaf {
+                    // {
+                    // From River: reset child
+                    self.nodes[node_idx].range_min =
+                        Array1::from_elem(self.n_features, F::infinity());
+                    self.nodes[node_idx].range_max =
+                        Array1::from_elem(self.n_features, -F::infinity());
+                    self.nodes[node_idx].stats = Stats::new(self.n_labels, self.n_features);
+                }
                 // self.update_downwards(parent_idx);
-                // From Python: added "update_leaf" after "update_downwards"
+                // From River: added "update_leaf" after "update_downwards"
                 self.nodes[parent_idx].update_leaf(x, y);
                 return parent_idx;
             }
@@ -440,6 +446,7 @@ impl<F: FType> MondrianTreeClassifier<F> {
             let eta = dist_min.sum() + dist_max.sum();
             F::one() - (-d * eta).exp()
         };
+        debug_assert!(!p.is_nan(), "Found probability of splitting NaN. This is probably because range_max and range_min are [inf, inf]");
 
         // Generate a result for the current node using its statistics.
         let res = node.stats.create_result(x, p_not_separated_yet * p);

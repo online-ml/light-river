@@ -12,7 +12,7 @@ pub struct Synthetic;
 impl Synthetic {
     pub fn load_data() -> IterCsv<f32, File> {
         let url = "https://marcodifrancesco.com/assets/img/LightRiver/syntetic_dataset.csv";
-        let file_name = "syntetic_dataset_v2.csv";
+        let file_name = "syntetic_dataset_v2.1.csv";
         if !Path::new(file_name).exists() {
             utils::download_csv_file(url, file_name);
         }
