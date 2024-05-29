@@ -98,19 +98,21 @@ impl<F: FType> Stats<F> {
         probs * w
     }
     pub fn add(&mut self, x: &Array1<F>, y: usize) {
+        // Checked on May 29th on few samples, looks correct
+        // println!("add() - x={x}, y={y}, count={}, \nsums={}, \nsq_sums={}", self.counts, self.sums, self.sq_sums);
+
         // Same as: self.sums[y] += x;
         self.sums.row_mut(y).zip_mut_with(&x, |a, &b| *a += b);
-
         // Same as: self.sq_sums[y] += x*x;
         // e.g. x: [1.059 0.580] -> x*x: [1.122  0.337]
         self.sq_sums
             .row_mut(y)
             .zip_mut_with(&x, |a, &b| *a += b * b);
-
         self.counts[y] += 1;
+
+        // println!("      - y={y}, count={}, \nsums={}, \nsq_sums={}", self.counts, self.sums, self.sq_sums);
     }
     fn merge(&self, s: &Stats<F>) -> Stats<F> {
-        // NOTE: nel215 returns a new Stats object, we are only changing the node values here
         Stats {
             sums: self.sums.clone() + &s.sums,
             sq_sums: self.sq_sums.clone() + &s.sq_sums,
@@ -124,13 +126,18 @@ impl<F: FType> Stats<F> {
 
         // println!("predict_proba() - start {}", self);
 
-        for (index, ((sum, sq_sum), &count)) in self
+        // println!("var aware est   - counts: {}", self.counts);
+
+        // Iterate over each label
+        for (idx, ((sum, sq_sum), &count)) in self
             .sums
             .outer_iter()
             .zip(self.sq_sums.outer_iter())
             .zip(self.counts.iter())
             .enumerate()
         {
+            // println!("                - idx: {idx}, count: {count}, sum: {sum}, sq_sum: {sq_sum}");
+
             let epsilon = F::epsilon();
             let count_f = F::from_usize(count).unwrap();
             let avg = &sum / count_f;
@@ -145,10 +152,13 @@ impl<F: FType> Stats<F> {
             // epsilon added since exponent.exp() could be zero if exponent is very small
             let mut prob = (exponent.exp() + epsilon) / z;
             if count <= 0 {
-                debug_assert!(prob.is_nan(), "Probabaility should be NaN. Found: {prob}.");
+                // prob is NaN
                 prob = F::zero();
             }
-            probs[index] = prob;
+            probs[idx] = prob;
+
+            // DEBUG: stop using variance aware estimation
+            probs[idx] = count_f;
         }
 
         if probs.iter().all(|&x| x == F::zero()) {
@@ -162,6 +172,7 @@ impl<F: FType> Stats<F> {
         for prob in probs.iter_mut() {
             *prob /= probs_sum;
         }
+        // println!("                - probs out: {}", probs);
         probs
     }
 }

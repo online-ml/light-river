@@ -21,10 +21,7 @@ impl<F: FType> MondrianForestClassifier<F> {
         MondrianForestClassifier::<F> { trees, n_labels }
     }
 
-    /// Note: In Nel215 codebase should work on multiple records, here it's
-    /// working only on one.
-    ///
-    /// Function in River/LightRiver: "learn_one()"
+    /// Function in River is "learn_one()"
     pub fn partial_fit(&mut self, x: &Array1<F>, y: usize) {
         for tree in &mut self.trees {
             tree.partial_fit(x, y);
@@ -54,6 +51,7 @@ impl<F: FType> MondrianForestClassifier<F> {
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             .map(|(idx, _)| idx)
             .unwrap();
+        // println!("probs: {}, pred_idx: {}, y (correct): {}, is_correct: {}", probs, pred_idx, y, pred_idx == y);
         if pred_idx == y {
             F::one()
         } else {
