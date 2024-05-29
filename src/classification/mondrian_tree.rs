@@ -157,6 +157,282 @@ impl<F: FType> MondrianTreeClassifier<F> {
             }
         }
 
+        fn point_inside_area<F: std::cmp::PartialOrd>(
+            point: &Array1<F>,
+            range_min: &Array1<F>,
+            range_max: &Array1<F>,
+        ) -> bool {
+            point.iter().zip(range_min.iter()).all(|(a, b)| *a >= *b)
+                && point.iter().zip(range_max.iter()).all(|(a, b)| *a <= *b)
+        }
+
+        // Check if siblings are sharing area of the rectangle
+        //
+        // e.g. This is not allowed
+        //      └─Node: min=[0, 0], max=[3, 3]
+        //        ├─Node: min=[0, 0], max=[2, 2]
+        //        └─Node: min=[1, 1], max=[3, 3]
+        fn siblings_share_area<F: Float + std::cmp::PartialOrd>(
+            left: &Node<F>,
+            right: &Node<F>,
+        ) -> bool {
+            point_inside_area(&left.range_min, &right.range_min, &right.range_max)
+                || point_inside_area(&left.range_max, &right.range_min, &right.range_max)
+                || point_inside_area(&right.range_min, &left.range_min, &left.range_max)
+                || point_inside_area(&right.range_max, &left.range_min, &left.range_max)
+        }
+
+        /// Check if child is inside parent's rectangle
+        ///
+        /// e.g. Tree
+        ///      └─Node: min=[0, 0], max=[3, 3]
+        ///        ├─Node: min=[4, 4], max=[5, 5] <----- Child outside parent
+        ///        └─Node: min=[1, 1], max=[2, 2]
+        ///
+        /// NOTE: Remove this check because River breaks this rule. In my opinion River implementation
+        /// is wrong, it makes 0% sense that after a mid tree split the parent can have the range that
+        /// does not contain the children, but I'm following the implementation 1:1. It must be checked
+        /// in the future.
+        /// (An example: https://i.imgur.com/Yk4ZeuZ.png)
+        fn child_inside_parent<F: Float + std::cmp::PartialOrd>(
+            parent: &Node<F>,
+            child: &Node<F>,
+        ) -> bool {
+            // Skip if child is not initialized
+            if child.range_min.iter().any(|&x| x.is_infinite()) {
+                return true;
+            }
+            // Skip if parent is not initalized. Happens with split mid tree.
+            if parent.range_min.iter().any(|&x| x.is_infinite()) {
+                return true;
+            }
+            point_inside_area(&child.range_min, &parent.range_min, &parent.range_max)
+                & point_inside_area(&child.range_max, &parent.range_min, &parent.range_max)
+        }
+
+        /// Check if threshold cuts child
+        ///
+        /// e.g. Tree
+        ///      └─Node: min=[0, 0], max=[3, 3], thrs=0.5, f=0
+        ///        ├─Node: min=[0, 0], max=[1, 1], thrs=inf, f=_ <----- Threshold (0.5) cuts child
+        ///        └─Node: min=[2, 2], max=[3, 3], thrs=inf, f=_
+        ///
+        /// NOTE: For some reason this happens in River. I didn't raise this issue, but
+        /// something to consider fixing in the main repository.
+        /// (An example: https://i.imgur.com/wiMYy1D.png)
+        fn threshold_cuts_child<F: Float + std::cmp::PartialOrd>(
+            parent: &Node<F>,
+            child: &Node<F>,
+        ) -> bool {
+            // Skip if child is not initialized
+            if child.range_min.iter().any(|&x| x.is_infinite()) {
+                return false;
+            }
+            let thrs = parent.threshold;
+            let f = parent.feature;
+            (child.range_min[f] < thrs) & (thrs < child.range_max[f])
+        }
+
+        /// Check if left child is on left of the threshold, right child on right of it.
+        ///
+        /// e.g. Tree
+        ///      └─Node: min=[0, 0], max=[4, 4], thrs=2, f=0
+        ///        ├─Node: min=[0, 0], max=[0, 0], thrs=inf, f=_
+        ///        └─Node: min=[1, 1], max=[1, 1], thrs=inf, f=_ <----- Right child on found in the left of the threshold
+        fn children_on_correct_side<F: Float + std::cmp::PartialOrd + std::fmt::Display>(
+            parent: &Node<F>,
+            left: &Node<F>,
+            right: &Node<F>,
+        ) -> bool {
+            let thrs = parent.threshold;
+            let f = parent.feature;
+            // Left node
+            if !left.range_min.iter().any(|&x| x.is_infinite()) {
+                if (left.range_min[f] > thrs) | (left.range_max[f] > thrs) {
+                    println!("Left node right to the threshold");
+                    return false;
+                }
+            }
+            // Right node
+            if !right.range_min.iter().any(|&x| x.is_infinite()) {
+                if (right.range_min[f] < thrs) | (right.range_max[f] < thrs) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        /// Checking if parent count is the sum of the children
+        ///
+        /// e.g. This is correct
+        ///      └─Node: counts=[0, 2, 1]
+        ///        ├─Node: counts=[0, 1, 1]
+        ///        └─Node: counts=[0, 1, 0]
+        ///
+        /// NOTE: Commented since this in River this assumption is violated.
+        /// e.g. River output of a tree:
+        /// ┌ Node: counts=[0, 2, 4]
+        /// │ ├─ Node: counts=[0, 0, 4] <---- This is the sum of the children
+        /// │ │ ├─ Node: counts=[0, 0, 4]
+        /// │ │ ├─ Node: counts=[0, 0, 0]
+        /// │ ├─ Node: counts=[0, 1, 0]
+        /// Becomes after one sample:
+        /// ┌ Node: counts=[1, 2, 4]
+        /// │ ├─ Node: counts=[1, 0, 4] <---- Not the sum of the children anymore
+        /// │ │ ├─ Node: counts=[1, 0, 0]
+        /// │ │ │ ├─ Node: counts=[1, 0, 0]
+        /// │ │ │ ├─ Node: counts=[0, 0, 0]
+        /// │ │ ├─ Node: counts=[0, 0, 0]
+        /// │ ├─ Node: counts=[0, 1, 0]
+        fn parent_has_sibling_counts<F: Float + std::cmp::PartialOrd + std::fmt::Display>(
+            parent: &Node<F>,
+            left: &Node<F>,
+            right: &Node<F>,
+        ) -> bool {
+            (&left.stats.counts + &right.stats.counts) == &parent.stats.counts
+        }
+
+        /// Test whether childern are in the edge of the parent.
+        ///
+        /// e.g. Tree
+        ///      └─Node: min=[0, 0], max=[4, 4]
+        ///        ├─Node: min=[3, 3], max=[4, 4]
+        ///        └─Node: min=[1, 1], max=[2, 2] <- Error: This child does not touch any edge of the parent
+        ///
+        /// NOTE: It works only in 2 dimensions.
+        /// NOTE: This is a wrong assumption.
+        fn child_is_on_parent_edge<F: Float + std::cmp::PartialOrd>(
+            parent: &Node<F>,
+            child: &Node<F>,
+        ) -> bool {
+            // Skip if child is not initialized
+            if child.range_min.iter().any(|&x| x.is_infinite()) {
+                return true;
+            }
+            assert!(
+                parent.range_min.len() == 2,
+                "This test works only in 2 features"
+            );
+            fn top_edge<F: Float + std::cmp::PartialOrd>(node: &Node<F>) -> F {
+                node.range_max[1]
+            }
+            fn bottom_edge<F: Float + std::cmp::PartialOrd>(node: &Node<F>) -> F {
+                node.range_min[1]
+            }
+            fn right_edge<F: Float + std::cmp::PartialOrd>(node: &Node<F>) -> F {
+                node.range_max[0]
+            }
+            fn left_edge<F: Float + std::cmp::PartialOrd>(node: &Node<F>) -> F {
+                node.range_min[0]
+            }
+
+            (top_edge(parent) == top_edge(child))
+                | (bottom_edge(parent) == bottom_edge(child))
+                | (left_edge(parent) == left_edge(child))
+                | (right_edge(parent) == right_edge(child))
+        }
+        for node_idx in 0..self.nodes.len() {
+            let node = &self.nodes[node_idx];
+            if node.left.is_some() {
+                let left_idx = node.left.unwrap();
+                let right_idx = node.right.unwrap();
+                let left = &self.nodes[left_idx];
+                let right = &self.nodes[right_idx];
+
+                // Siblings share area
+                debug_assert!(
+                    !siblings_share_area(left, right),
+                    "Siblings share area. \nNode {}: {}, \nNode {}: {}\nTree{}",
+                    left_idx,
+                    left,
+                    right_idx,
+                    right,
+                    self
+                );
+
+                // Child inside parent
+                // debug_assert!(
+                //     child_inside_parent(node, left),
+                //     "Left child outiside parent. \nParent {}: {}, \nChild {}: {}\nTree{}",
+                //     node_idx,
+                //     node,
+                //     left_idx,
+                //     left,
+                //     self
+                // );
+                // debug_assert!(
+                //     child_inside_parent(node, right),
+                //     "Right child outiside parent. \nParent {}: {}, \nChild {}: {}\nTree{}",
+                //     node_idx,
+                //     node,
+                //     right_idx,
+                //     right,
+                //     self
+                // );
+
+                // Threshold cuts child
+                debug_assert!(
+                    !threshold_cuts_child(node, right),
+                    "Threshold (of the parent) cuts child. \nParent {}: {}, \nChild {}: {}\nTree{}",
+                    node_idx,
+                    node,
+                    right_idx,
+                    right,
+                    self
+                );
+                debug_assert!(
+                    !threshold_cuts_child(node, left),
+                    "Threshold (of the parent) cuts child. \nParent {}: {}, \nChild {}: {}\nTree{}",
+                    node_idx,
+                    node,
+                    left_idx,
+                    left,
+                    self
+                );
+
+                // Child on correct side of the threshold
+                debug_assert!(
+                    children_on_correct_side(node, left, right),
+                    "One child is on the wrong side of the split. \nThreshold (Parent {}): {}, Left: {}, Right: {}\nTree{}",
+                    node_idx,
+                    node.threshold,
+                    left_idx,
+                    right_idx,
+                    self
+                );
+
+                // Child is on parent edge
+                // debug_assert!(
+                //     child_is_on_parent_edge(node, right),
+                //     "Child is not on the parent edge. \nParent {}: {}, \nChild {}: {}\nTree{}",
+                //     node_idx,
+                //     node,
+                //     right_idx,
+                //     right,
+                //     self
+                // );
+                // debug_assert!(
+                //     child_is_on_parent_edge(node, left),
+                //     "Child is not on the parent edge. \nParent {}: {}, \nChild {}: {}\nTree{}",
+                //     node_idx,
+                //     node,
+                //     left_idx,
+                //     left,
+                //     self
+                // );
+
+                // Parent count has sibling count sum
+                // debug_assert!(
+                //     parent_has_sibling_counts(node, left, right),
+                //     "Parent count is not sibling's sum. \nNode {}: {}\nTree{}",
+                //     node_idx,
+                //     node,
+                //     self
+                // );
+            }
+        }
+
+        // Check if parents are not sharing children
         let children_l: Vec<usize> = self.nodes.iter().filter_map(|node| node.left).collect();
         let children_r: Vec<usize> = self.nodes.iter().filter_map(|node| node.right).collect();
         let children = [children_l.clone(), children_r.clone()].concat();
@@ -177,13 +453,11 @@ impl<F: FType> MondrianTreeClassifier<F> {
         y: usize,
         extensions_sum: F,
     ) -> F {
-        // println!("is_dirac() - counts: {}, node: {}", self.nodes[node_idx].stats.counts, node_idx);
         if self.nodes[node_idx].is_dirac(y) {
-            // println!(
-            //     "compute_split_time() - node: {node_idx} - extensions_sum: {:?} - same class: {}",
-            //     extensions_sum,
-            //     self.nodes[node_idx].is_dirac(y)
-            // );
+            println!(
+                "compute_split_time() - node: {node_idx} - extensions_sum: {:?} - same class",
+                extensions_sum
+            );
             return F::zero();
         }
 
@@ -192,10 +466,10 @@ impl<F: FType> MondrianTreeClassifier<F> {
 
             // From River: If the node is a leaf we must split it
             if self.nodes[node_idx].is_leaf {
-                // println!(
-                //     "compute_split_time() - node: {node_idx} - extensions_sum: {:?} - split is_leaf",
-                //     extensions_sum
-                // );
+                println!(
+                    "compute_split_time() - node: {node_idx} - extensions_sum: {:?} - split is_leaf",
+                    extensions_sum
+                );
                 return split_time;
             }
 
@@ -205,18 +479,18 @@ impl<F: FType> MondrianTreeClassifier<F> {
             let child_time = self.nodes[child_idx].time;
             // 2. We check if splitting time occurs before child creation time
             if split_time < child_time {
-                // println!(
-                //     "compute_split_time() - node: {node_idx} - extensions_sum: {:?} - split mid tree",
-                //     extensions_sum
-                // );
+                println!(
+                    "compute_split_time() - node: {node_idx} - extensions_sum: {:?} - split mid tree",
+                    extensions_sum
+                );
                 return split_time;
             }
-            // println!("compute_split_time() - node: {node_idx} - extensions_sum: {:?} - not increased enough to split (mid node)", extensions_sum);
+            println!("compute_split_time() - node: {node_idx} - extensions_sum: {:?} - not increased enough to split (mid node)", extensions_sum);
         } else {
-            // println!(
-            //     "compute_split_time() - node: {node_idx} - extensions_sum: {:?} - not outside box",
-            //     extensions_sum
-            // );
+            println!(
+                "compute_split_time() - node: {node_idx} - extensions_sum: {:?} - not outside box",
+                extensions_sum
+            );
         }
 
         F::zero()
@@ -224,6 +498,26 @@ impl<F: FType> MondrianTreeClassifier<F> {
 
     fn go_downwards(&mut self, node_idx: usize, x: &Array1<F>, y: usize) -> usize {
         let time = self.nodes[node_idx].time;
+        // Set 0 if any value is Inf
+        // TODO: remove it if not useful
+        // let node_range_min = if self.nodes[node_idx]
+        //     .range_min
+        //     .iter()
+        //     .any(|&x| !x.is_infinite())
+        // {
+        //     self.nodes[node_idx].range_min.clone()
+        // } else {
+        //     Array1::zeros(self.nodes[node_idx].range_min.len())
+        // };
+        // let node_range_max = if self.nodes[node_idx]
+        //     .range_max
+        //     .iter()
+        //     .any(|&x| x.is_infinite())
+        // {
+        //     self.nodes[node_idx].range_max.clone()
+        // } else {
+        //     Array1::zeros(self.nodes[node_idx].range_max.len())
+        // };
         let node_range_min = &self.nodes[node_idx].range_min;
         let node_range_max = &self.nodes[node_idx].range_max;
         let extensions = {
@@ -259,8 +553,6 @@ impl<F: FType> MondrianTreeClassifier<F> {
             };
 
             let mut is_right_extension = x[feature] > node_range_min[feature];
-            // DEBUG: just to test the is not leaf case
-            is_right_extension = false;
 
             let (lower_bound, upper_bound) = if is_right_extension {
                 (
@@ -273,7 +565,7 @@ impl<F: FType> MondrianTreeClassifier<F> {
                     node_range_min[feature].to_f32().unwrap(),
                 )
             };
-            // let threshold: F = F::from_f32(self.rng.gen_range(lower_bound..upper_bound)).unwrap();
+            let threshold: F = F::from_f32(self.rng.gen_range(lower_bound..upper_bound)).unwrap();
             // DEBUG: split in the middle
             let threshold = F::from_f32((lower_bound + upper_bound) / 2.0).unwrap();
             // println!(
@@ -287,7 +579,7 @@ impl<F: FType> MondrianTreeClassifier<F> {
             range_max.zip_mut_with(x, |a, &b| *a = F::max(*a, b));
 
             if self.nodes[node_idx].is_leaf {
-                // println!("go_downwards() - split_time > 0 (is leaf)");
+                println!("go_downwards() - split_time > 0 (is leaf)");
                 let leaf_full = self.create_node(x, y, Some(node_idx), split_time, true);
                 let leaf_empty = self.create_node_empty(Some(node_idx), split_time);
                 // if x[feature] <= threshold {
@@ -306,7 +598,7 @@ impl<F: FType> MondrianTreeClassifier<F> {
                 self.update_downwards(node_idx);
                 return node_idx;
             } else {
-                // println!("go_downwards() - split_time > 0 (not leaf)");
+                println!("go_downwards() - split_time > 0 (not leaf)");
                 let parent_node = Node {
                     parent: self.nodes[node_idx].parent,
                     time: self.nodes[node_idx].time,
@@ -326,10 +618,10 @@ impl<F: FType> MondrianTreeClassifier<F> {
                 // TODO: check is_leaf, sometimes is true, sometimes false??
                 let sibling_idx = self.create_node(x, y, Some(parent_idx), split_time, true);
 
-                // println!(
-                //     "grandpa: {:?}, parent: {:?}, child: {:?}, sibling: {:?}",
-                //     self.nodes[node_idx].parent, parent_idx, node_idx, sibling_idx
-                // );
+                println!(
+                    "grandpa: {:?}, parent: {:?}, child: {:?}, sibling: {:?}",
+                    self.nodes[node_idx].parent, parent_idx, node_idx, sibling_idx
+                );
                 // Node 1. Grandpa: self.nodes[node_idx].parent
                 // └─Node 3. (new) Parent: parent_idx
                 //   ├─Node 2. Child: node_idx
@@ -346,16 +638,13 @@ impl<F: FType> MondrianTreeClassifier<F> {
                 self.nodes[node_idx].parent = Some(parent_idx);
                 self.nodes[node_idx].time = split_time;
 
-                // I'm 0% sure if this "if" is required.
-                if self.nodes[node_idx].is_leaf {
-                    // {
-                    // From River: reset child
-                    self.nodes[node_idx].range_min =
-                        Array1::from_elem(self.n_features, F::infinity());
-                    self.nodes[node_idx].range_max =
-                        Array1::from_elem(self.n_features, -F::infinity());
-                    self.nodes[node_idx].stats = Stats::new(self.n_labels, self.n_features);
-                }
+                // This if is required to not break 'child_inside_parent' test. Even though
+                // it's probably correct I'll comment it until we get a 1:1 with River.
+                // if self.nodes[node_idx].is_leaf {
+                self.nodes[node_idx].range_min = Array1::from_elem(self.n_features, F::infinity());
+                self.nodes[node_idx].range_max = Array1::from_elem(self.n_features, -F::infinity());
+                self.nodes[node_idx].stats = Stats::new(self.n_labels, self.n_features);
+                // }
                 // self.update_downwards(parent_idx);
                 // From River: added "update_leaf" after "update_downwards"
                 self.nodes[parent_idx].update_leaf(x, y);
@@ -429,7 +718,7 @@ impl<F: FType> MondrianTreeClassifier<F> {
     /// as public interface for predict().
     pub fn predict_proba(&self, x: &Array1<F>) -> Array1<F> {
         // println!("predict_proba() - tree size: {}", self.nodes.len());
-        // self.test_tree();
+        self.test_tree();
         self.predict(x, self.root.unwrap(), F::one())
     }
 
