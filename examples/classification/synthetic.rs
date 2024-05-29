@@ -73,7 +73,7 @@ fn main() {
         };
         let y = labels.clone().iter().position(|l| l == &y).unwrap();
 
-        // println!("=M=1 x {}", x);
+        println!("=M=1 x:{}, idx: {}", x, idx);
 
         // Skip first sample since tree has still no node
         if idx != 0 {
@@ -90,7 +90,7 @@ fn main() {
         // println!("=M=1 partial_fit {x}");
         mf.partial_fit(&x, y);
 
-        // if idx == 163 {
+        // if idx == 166 {
         //     break;
         // }
     }
