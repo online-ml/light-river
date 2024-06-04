@@ -3,6 +3,7 @@ pub mod classification;
 pub mod common;
 pub mod datasets;
 pub mod metrics;
+pub mod regression;
 pub mod stream;
 
 #[cfg(test)]

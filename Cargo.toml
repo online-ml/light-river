@@ -39,6 +39,10 @@ path = "examples/classification/keystroke.rs"
 name = "synthetic"
 path = "examples/classification/synthetic.rs"
 
+[[example]]
+name = "synthetic-regression"
+path = "examples/regression/synthetic_regression.rs"
+
 [[bench]]
 name = "hst"
 harness = false
