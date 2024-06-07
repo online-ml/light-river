@@ -3,6 +3,7 @@ use std::{
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
+use ndarray::{Array, Array1};
 use num::{Float, FromPrimitive};
 
 /// Represents an observation, using a HashMap of String keys and Float values.
@@ -35,7 +36,7 @@ pub type Observation<F> = HashMap<String, F>;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum ClassifierTarget {
     Bool(bool),
-    Int(i32),
+    Int(usize),
     String(String),
 }
 // impl fmt::Display for ClassifierTarget {
@@ -110,8 +111,8 @@ impl From<&str> for ClassifierTarget {
     }
 }
 
-impl From<i32> for ClassifierTarget {
-    /// Converts an i32 into a ClassifierTarget::Int variant.
+impl From<usize> for ClassifierTarget {
+    /// Converts an usize into a ClassifierTarget::Int variant.
     ///
     /// # Examples
     ///
@@ -120,7 +121,7 @@ impl From<i32> for ClassifierTarget {
     /// let target = ClassifierTarget::from(123);
     /// assert_eq!(target, ClassifierTarget::Int(123));
     /// ```
-    fn from(i: i32) -> Self {
+    fn from(i: usize) -> Self {
         ClassifierTarget::Int(i)
     }
 }
@@ -145,8 +146,8 @@ impl From<&bool> for ClassifierTarget {
     }
 }
 
-impl From<&i32> for ClassifierTarget {
-    fn from(i: &i32) -> Self {
+impl From<&usize> for ClassifierTarget {
+    fn from(i: &usize) -> Self {
         ClassifierTarget::Int(*i)
     }
 }
@@ -154,6 +155,17 @@ impl From<&i32> for ClassifierTarget {
 impl From<&String> for ClassifierTarget {
     fn from(s: &String) -> Self {
         ClassifierTarget::String(s.clone())
+    }
+}
+
+// TODO: remove this implementation.
+impl From<ClassifierTarget> for usize {
+    fn from(i: ClassifierTarget) -> Self {
+        match i {
+            ClassifierTarget::Int(i) => i,
+            ClassifierTarget::Bool(b) => panic!("Cannot convert Bool to usize"),
+            ClassifierTarget::String(_) => panic!("Cannot convert String to usize"),
+        }
     }
 }
 
@@ -236,11 +248,11 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> C
 }
 
 /// Represents the output of a regression model, is a prediction.
-/// The prediction is represented by a RegressionTarget.
+/// The prediction is represented by a RegressorTarget.
 /// # Example
 /// ```
-/// use light_river::common::{RegressionOutput, RegressionTarget};
-/// let target: RegressionTarget<f32> = 0.1;
+/// use light_river::common::{RegressionOutput, RegressorTarget};
+/// let target: RegressorTarget<f32> = 0.1;
 /// let probs: RegressionOutput<f32> = RegressionOutput::Prediction(target);
 /// let pred = probs.get_predicition();
 /// assert_eq!(pred, target);
@@ -248,10 +260,10 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> C
 #[derive(Debug)]
 pub enum RegressionOutput<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign>
 {
-    Prediction(RegressionTarget<F>),
+    Prediction(RegressorTarget<F>),
 }
 impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> RegressionOutput<F> {
-    pub fn get_predicition(&self) -> RegressionTarget<F> {
+    pub fn get_predicition(&self) -> RegressorTarget<F> {
         match self {
             RegressionOutput::Prediction(y) => y.clone(),
         }
@@ -263,11 +275,11 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> R
 /// ```
 /// use num::Float;
 ///
-/// type RegressionTarget<F: Float> = F;
+/// type RegressorTarget<F: Float> = F;
 ///
-/// let target: RegressionTarget<f32> = 42.0;
+/// let target: RegressorTarget<f32> = 42.0;
 /// ```
-pub type RegressionTarget<F> = F;
+pub type RegressorTarget<F> = F;
 
 /// Enum for all possible model targets (classification, regression, clustering, anomaly).
 ///
@@ -284,8 +296,8 @@ pub type RegressionTarget<F> = F;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ModelTarget<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> {
     Classification(ClassifierTarget),
-    Regression(RegressionTarget<F>),
-    Clustering(i32),
+    Regression(RegressorTarget<F>),
+    Clustering(usize),
     Anomaly(F),
 }
 
@@ -294,17 +306,30 @@ pub enum ModelTarget<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssig
 /// Implement this trait for your classifier to use the `learn_one`, `predict_proba`, and
 /// `predict_one` methods.
 pub trait Classifier<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> {
-    fn learn_one(&mut self, x: &Observation<F>, y: ClassifierTarget);
-    fn predict_proba(&self, x: &Observation<F>) -> ClassifierTargetProbabilities<F>;
-    fn predict_one(&self, x: &Observation<F>) -> ClassifierTarget;
+    // Temporary changed function parameters.
+    // TODO: change back to original parameters.
+
+    // fn learn_one(&mut self, x: &Observation<F>, y: ClassifierTarget);
+    fn learn_one(&mut self, x: &Array1<F>, y: &ClassifierTarget);
+
+    // fn predict_proba(&self, x: &Observation<F>) -> ClassifierTargetProbabilities<F>;
+    fn predict_proba(&self, x: &Array1<F>) -> Array1<F>;
+
+    // fn predict_one(&self, x: &Observation<F>) -> ClassifierTarget;
+    fn predict_one(&mut self, x: &Array1<F>, y: &ClassifierTarget) -> F;
 }
 
 /// Trait for implementing a regression model.
 ///
 /// Implement this trait for your regressor to use the `learn_one` and `predict_one` methods.
 pub trait Regressor<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> {
-    fn learn_one(&mut self, x: &Observation<F>, y: RegressionTarget<F>);
-    fn predict_one(&self, x: &Observation<F>) -> RegressionTarget<F>;
+    // TODO: same as Classifier, roll back to previous function params.
+
+    // fn learn_one(&mut self, x: &Observation<F>, y: RegressorTarget<F>);
+    fn learn_one(&mut self, x: &Array1<F>, y: &RegressorTarget<F>);
+
+    // fn predict_one(&self, x: &Observation<F>) -> RegressorTarget<F>;
+    fn predict_one(&mut self, x: &Array1<F>, y: &RegressorTarget<F>) -> F;
 }
 
 /// Trait for implementing an anomaly detector model.
@@ -321,7 +346,7 @@ pub trait AnomalyDetector<F: Float + FromPrimitive + AddAssign + SubAssign + Mul
 /// Implement this trait for your clustering model to use the `learn_one` and `predict_one` methods.
 pub trait Clusterer<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> {
     fn learn_one(&mut self, x: &Observation<F>);
-    fn predict_one(&self, x: &Observation<F>) -> i32;
+    fn predict_one(&self, x: &Observation<F>) -> usize;
 }
 
 /// Represents a generic model which can be one of several types (classifier, regressor, anomaly detector, or clusterer).
@@ -332,34 +357,36 @@ pub enum ModelType<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign 
     Clusterer(Box<dyn Clusterer<F>>),
 }
 
-impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> ModelType<F> {
-    /// Adapter method for learning a single observation.
-    pub fn learn_one(&mut self, x: &Observation<F>, y: ModelTarget<F>) {
-        match (self, y) {
-            (ModelType::Classifier(classifier), ModelTarget::Classification(target)) => {
-                classifier.learn_one(x, target);
-            }
-            (ModelType::Regressor(regressor), ModelTarget::Regression(target)) => {
-                regressor.learn_one(x, target);
-            }
-            (ModelType::AnomalyDetector(detector), ModelTarget::Anomaly(_)) => {
-                detector.learn_one(x);
-            }
-            (ModelType::Clusterer(clusterer), ModelTarget::Clustering(_)) => {
-                clusterer.learn_one(x);
-            }
-            _ => panic!("Mismatch between ModelType and ModelTarget"),
-        }
-    }
-    /// Adapter method for predicting of a single observation.
-    pub fn predict_one(&self, x: &Observation<F>) -> ModelTarget<F> {
-        match self {
-            ModelType::Classifier(classifier) => {
-                ModelTarget::Classification(classifier.predict_one(x))
-            }
-            ModelType::Regressor(regressor) => ModelTarget::Regression(regressor.predict_one(x)),
-            ModelType::AnomalyDetector(detector) => ModelTarget::Anomaly(detector.score_one(x)),
-            ModelType::Clusterer(clusterer) => ModelTarget::Clustering(clusterer.predict_one(x)),
-        }
-    }
-}
+// TODO: uncomment once traits Regressor and Classifier are fixed.
+
+// impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> ModelType<F> {
+//     /// Adapter method for learning a single observation.
+//     pub fn learn_one(&mut self, x: &Observation<F>, y: ModelTarget<F>) {
+//         match (self, y) {
+//             (ModelType::Classifier(classifier), ModelTarget::Classification(target)) => {
+//                 classifier.learn_one(x, target);
+//             }
+//             (ModelType::Regressor(regressor), ModelTarget::Regression(target)) => {
+//                 regressor.learn_one(x, target);
+//             }
+//             (ModelType::AnomalyDetector(detector), ModelTarget::Anomaly(_)) => {
+//                 detector.learn_one(x);
+//             }
+//             (ModelType::Clusterer(clusterer), ModelTarget::Clustering(_)) => {
+//                 clusterer.learn_one(x);
+//             }
+//             _ => panic!("Mismatch between ModelType and ModelTarget"),
+//         }
+//     }
+//     /// Adapter method for predicting of a single observation.
+//     pub fn predict_one(&self, x: &Observation<F>) -> ModelTarget<F> {
+//         match self {
+//             ModelType::Classifier(classifier) => {
+//                 ModelTarget::Classification(classifier.predict_one(x))
+//             }
+//             ModelType::Regressor(regressor) => ModelTarget::Regression(regressor.predict_one(x)),
+//             ModelType::AnomalyDetector(detector) => ModelTarget::Anomaly(detector.score_one(x)),
+//             ModelType::Clusterer(clusterer) => ModelTarget::Clustering(clusterer.predict_one(x)),
+//         }
+//     }
+// }

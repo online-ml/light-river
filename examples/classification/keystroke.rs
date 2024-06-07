@@ -1,7 +1,6 @@
-use light_river::classification::mondrian_forest::MondrianForestClassifier;
-
 use light_river::common::ClassifierTarget;
 use light_river::datasets::keystroke::Keystroke;
+use light_river::mondrian_forest::mondrian_forest::{MondrianForest, MondrianForestClassifier};
 
 use light_river::stream::iter_csv::IterCsv;
 use ndarray::Array1;

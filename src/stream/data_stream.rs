@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
-use crate::common::{ClassifierTarget, Observation, RegressionTarget};
+use crate::common::{ClassifierTarget, Observation, RegressorTarget};
 use num::Float;
 
 /// This enum allows you to choose whether to define a single target (Name) or multiple targets (MultipleNames).
@@ -139,13 +139,13 @@ impl<F: Float + std::str::FromStr + std::fmt::Display> DataStream<F> {
     /// **get_y()**: e.g. {"subject": ????????}
     ///
     /// **to_regression_target()**: e.g. ??????
-    pub fn to_regression_target(&self, target_key: &str) -> Result<RegressionTarget<F>, &str> {
+    pub fn to_regression_target(&self, target_key: &str) -> Result<RegressorTarget<F>, &str> {
         match self {
             DataStream::X(_) => Err("No y data"),
             // Use data to float
             DataStream::XY(_, y) => {
                 let y = y.get(target_key).unwrap();
-                Ok(RegressionTarget::<F>::from(y.to_float().unwrap()).unwrap())
+                Ok(RegressorTarget::<F>::from(y.to_float().unwrap()).unwrap())
             }
         }
     }

@@ -1,6 +1,6 @@
-use light_river::classification::mondrian_forest::MondrianForestClassifier;
+use light_river::mondrian_forest::mondrian_forest::MondrianForestClassifier;
 
-use light_river::common::ClassifierTarget;
+use light_river::common::{Classifier, ClassifierTarget};
 use light_river::datasets::synthetic::Synthetic;
 use light_river::stream::iter_csv::IterCsv;
 use ndarray::Array1;
@@ -72,12 +72,12 @@ fn main() {
             _ => unimplemented!(),
         };
         let y = labels.clone().iter().position(|l| l == &y).unwrap();
-
+        let y = ClassifierTarget::from(y);
         // println!("=M=1 x:{}, idx: {}", x, idx);
 
         // Skip first sample since tree has still no node
         if idx != 0 {
-            let score = mf.score(&x, y);
+            let score = mf.predict_one(&x, &y);
             score_total += score;
             println!(
                 "Accuracy: {} / {} = {}",
@@ -91,7 +91,7 @@ fn main() {
         //     break;
         // }
 
-        mf.partial_fit(&x, y);
+        mf.learn_one(&x, &y);
     }
 
     let elapsed_time = now.elapsed();

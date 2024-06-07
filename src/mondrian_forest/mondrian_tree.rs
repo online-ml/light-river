@@ -1,16 +1,12 @@
-use crate::classification::alias::FType;
-use crate::classification::mondrian_node::{Node, Stats};
-
-use ndarray::Array1;
-
+use crate::common::{Classifier, ClassifierTarget, Regressor, RegressorTarget};
+use crate::mondrian_forest::alias::FType;
+use crate::mondrian_forest::mondrian_node::Node;
+use ndarray::{Array1, Array2};
 use num::{Float, FromPrimitive};
 use rand::prelude::*;
 use rand_distr::{Distribution, Exp};
-
 use std::collections::HashSet;
-
 use std::fmt;
-
 use std::usize;
 
 #[derive(Clone)]
@@ -66,9 +62,9 @@ impl<F: FType + fmt::Display> MondrianTreeClassifier<F> {
                 node.range_max.to_vec(),
                 node.threshold,
                 feature,
-                node.stats.counts,
-                // node.stats.sums,
-                // node.stats.sq_sums,
+                node.counts,
+                // node.sums,
+                // node.sq_sums,
                 // node.is_leaf,
             )?;
 
@@ -88,6 +84,26 @@ impl<F: FType + fmt::Display> MondrianTreeClassifier<F> {
     }
 }
 
+impl<F: FType> Classifier<F> for MondrianTreeClassifier<F> {
+    fn learn_one(&mut self, x: &Array1<F>, y: &ClassifierTarget) {
+        self.root = match self.root {
+            None => Some(self.create_leaf(x, y, None, F::zero())),
+            Some(root_idx) => Some(self.go_downwards(root_idx, x, y)),
+        };
+        // println!("partial_fit() tree post {}===========", self);
+    }
+
+    fn predict_proba(&self, x: &Array1<F>) -> Array1<F> {
+        // println!("predict_proba() - tree size: {}", self.nodes.len());
+        self.test_tree();
+        self.predict(x, self.root.unwrap(), F::one())
+    }
+
+    fn predict_one(&mut self, x: &Array1<F>, y: &ClassifierTarget) -> F {
+        unimplemented!("predict_proba is only implemented in MondrianForest for now. In the future implement it")
+    }
+}
+
 impl<F: FType> MondrianTreeClassifier<F> {
     pub fn new(n_features: usize, n_labels: usize) -> Self {
         MondrianTreeClassifier::<F> {
@@ -99,7 +115,13 @@ impl<F: FType> MondrianTreeClassifier<F> {
         }
     }
 
-    fn create_leaf(&mut self, x: &Array1<F>, y: usize, parent: Option<usize>, time: F) -> usize {
+    fn create_leaf(
+        &mut self,
+        x: &Array1<F>,
+        y: &ClassifierTarget,
+        parent: Option<usize>,
+        time: F,
+    ) -> usize {
         let mut node = Node::<F> {
             parent,
             time, // F::from(1e9).unwrap(), // Very large value
@@ -110,7 +132,11 @@ impl<F: FType> MondrianTreeClassifier<F> {
             threshold: F::infinity(),
             left: None,
             right: None,
-            stats: Stats::new(self.n_labels, self.n_features),
+            sums: Array2::zeros((self.n_labels, self.n_features)),
+            sq_sums: Array2::zeros((self.n_labels, self.n_features)),
+            counts: Array1::zeros(self.n_labels),
+            n_labels: self.n_labels,
+            n_features: self.n_features,
         };
         node.update_leaf(x, y);
         self.nodes.push(node);
@@ -129,7 +155,11 @@ impl<F: FType> MondrianTreeClassifier<F> {
             threshold: F::infinity(),
             left: None,
             right: None,
-            stats: Stats::new(self.n_labels, self.n_features),
+            sums: Array2::zeros((self.n_labels, self.n_features)),
+            sq_sums: Array2::zeros((self.n_labels, self.n_features)),
+            counts: Array1::zeros(self.n_labels),
+            n_labels: self.n_labels,
+            n_features: self.n_features,
         };
         self.nodes.push(node);
         let node_idx = self.nodes.len() - 1;
@@ -280,7 +310,7 @@ impl<F: FType> MondrianTreeClassifier<F> {
             left: &Node<F>,
             right: &Node<F>,
         ) -> bool {
-            (&left.stats.counts + &right.stats.counts) == &parent.stats.counts
+            (&left.counts + &right.counts) == &parent.counts
         }
 
         for node_idx in 0..self.nodes.len() {
@@ -382,7 +412,7 @@ impl<F: FType> MondrianTreeClassifier<F> {
         time: F,
         exp_sample: F,
         node_idx: usize,
-        y: usize,
+        y: &ClassifierTarget,
         extensions_sum: F,
     ) -> F {
         if self.nodes[node_idx].is_dirac(y) {
@@ -428,7 +458,7 @@ impl<F: FType> MondrianTreeClassifier<F> {
         F::zero()
     }
 
-    fn go_downwards(&mut self, node_idx: usize, x: &Array1<F>, y: usize) -> usize {
+    fn go_downwards(&mut self, node_idx: usize, x: &Array1<F>, y: &ClassifierTarget) -> usize {
         let time = self.nodes[node_idx].time;
         let node_range_min = &self.nodes[node_idx].range_min;
         let node_range_max = &self.nodes[node_idx].range_max;
@@ -523,7 +553,12 @@ impl<F: FType> MondrianTreeClassifier<F> {
                     threshold,
                     left: None,
                     right: None,
-                    stats: Stats::new(self.n_labels, self.n_features),
+                    // stats: Stats::new(self.n_labels, self.n_features),
+                    sums: Array2::zeros((self.n_labels, self.n_features)),
+                    sq_sums: Array2::zeros((self.n_labels, self.n_features)),
+                    counts: Array1::zeros(self.n_labels),
+                    n_labels: self.n_labels,
+                    n_features: self.n_features,
                 };
                 self.nodes.push(parent_node);
                 let parent_idx = self.nodes.len() - 1;
@@ -544,7 +579,9 @@ impl<F: FType> MondrianTreeClassifier<F> {
                     self.nodes[parent_idx].left = Some(sibling_idx);
                     self.nodes[parent_idx].right = Some(node_idx);
                 }
-                self.nodes[parent_idx].stats = self.nodes[node_idx].stats.clone();
+                // self.nodes[parent_idx].stats = self.nodes[node_idx].stats.clone();
+                let node = &self.nodes[node_idx].clone();
+                self.nodes[parent_idx].copy_stats_from(node);
                 self.nodes[node_idx].parent = Some(parent_idx);
                 self.nodes[node_idx].time = split_time;
 
@@ -553,7 +590,11 @@ impl<F: FType> MondrianTreeClassifier<F> {
                 // if self.nodes[node_idx].is_leaf {
                 self.nodes[node_idx].range_min = Array1::from_elem(self.n_features, F::infinity());
                 self.nodes[node_idx].range_max = Array1::from_elem(self.n_features, -F::infinity());
-                self.nodes[node_idx].stats = Stats::new(self.n_labels, self.n_features);
+
+                // Resetting stats
+                // self.nodes[node_idx].stats = Stats::new(self.n_labels, self.n_features);
+                self.nodes[node_idx].reset_stats();
+
                 // }
                 // self.update_downwards(parent_idx);
                 self.nodes[parent_idx].update_leaf(x, y);
@@ -597,36 +638,9 @@ impl<F: FType> MondrianTreeClassifier<F> {
         // println!("update_downwards() - node_idx: {}", node_idx);
 
         let node = &self.nodes[node_idx];
-        let left_s = &self.nodes[node.left.unwrap()].stats;
-        let right_s = &self.nodes[node.right.unwrap()].stats;
-        let merge_s = node.update_internal(left_s, right_s);
-
-        let node = &mut self.nodes[node_idx];
-        node.stats = merge_s;
-    }
-
-    /// Note: In Nel215 codebase should work on multiple records, here it's
-    /// working only on one.
-    ///
-    /// Function in River/LightRiver: "learn_one()"
-    pub fn partial_fit(&mut self, x: &Array1<F>, y: usize) {
-        self.root = match self.root {
-            None => Some(self.create_leaf(x, y, None, F::zero())),
-            Some(root_idx) => Some(self.go_downwards(root_idx, x, y)),
-        };
-        // println!("partial_fit() tree post {}===========", self);
-    }
-
-    fn fit(&self) {
-        unimplemented!("Make the program first work with 'partial_fit', then implement this")
-    }
-
-    /// Note: In Nel215 codebase should work on multiple records. Here it only works
-    /// as public interface for predict().
-    pub fn predict_proba(&self, x: &Array1<F>) -> Array1<F> {
-        // println!("predict_proba() - tree size: {}", self.nodes.len());
-        self.test_tree();
-        self.predict(x, self.root.unwrap(), F::one())
+        let left = self.nodes[node.left.unwrap()].clone();
+        let right = self.nodes[node.right.unwrap()].clone();
+        self.nodes[node_idx].update_internal(left.clone(), right.clone());
     }
 
     fn predict(&self, x: &Array1<F>, node_idx: usize, p_not_separated_yet: F) -> Array1<F> {
@@ -644,11 +658,11 @@ impl<F: FType> MondrianTreeClassifier<F> {
         debug_assert!(!p.is_nan(), "Found probability of splitting NaN. This is probably because range_max and range_min are [inf, inf].");
 
         // Generate a result for the current node using its statistics.
-        let res = node.stats.create_result(x, p_not_separated_yet * p);
+        let res = node.create_result(x, p_not_separated_yet * p);
 
         let w = p_not_separated_yet * (F::one() - p);
         if node.is_leaf {
-            let res2 = node.stats.create_result(x, w);
+            let res2 = node.create_result(x, w);
             return res + res2;
         } else {
             let child_idx = if x[node.feature] <= node.threshold {
@@ -666,6 +680,55 @@ impl<F: FType> MondrianTreeClassifier<F> {
         match self.nodes[node_idx].parent {
             Some(parent_idx) => self.nodes[parent_idx].time,
             None => F::from_f32(0.0).unwrap(),
+        }
+    }
+
+    pub fn get_tree_size(&self) -> usize {
+        self.nodes.len()
+    }
+}
+
+#[derive(Clone)]
+pub struct MondrianTreeRegressor<F: FType> {
+    n_features: usize,
+    rng: ThreadRng,
+    nodes: Vec<Node<F>>,
+    root: Option<usize>,
+}
+
+impl<F: FType + fmt::Display> fmt::Display for MondrianTreeRegressor<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Ok(())
+    }
+}
+
+impl<F: FType + fmt::Display> MondrianTreeRegressor<F> {
+    fn recursive_repr(
+        &self,
+        node_idx: Option<usize>,
+        f: &mut fmt::Formatter<'_>,
+        prefix: &str,
+        is_last: bool,
+    ) -> fmt::Result {
+        Ok(())
+    }
+}
+
+impl<F: FType> Regressor<F> for MondrianTreeRegressor<F> {
+    fn learn_one(&mut self, x: &Array1<F>, y: &RegressorTarget<F>) {}
+
+    fn predict_one(&mut self, x: &Array1<F>, y: &RegressorTarget<F>) -> F {
+        unimplemented!("predict_proba is only implemented in MondrianForest for now. In the future implement it")
+    }
+}
+
+impl<F: FType> MondrianTreeRegressor<F> {
+    pub fn new(n_features: usize) -> Self {
+        MondrianTreeRegressor::<F> {
+            n_features,
+            rng: rand::thread_rng(),
+            nodes: vec![],
+            root: None,
         }
     }
 

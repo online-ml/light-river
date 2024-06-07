@@ -1,4 +1,5 @@
-use crate::classification::alias::FType;
+use crate::common::ClassifierTarget;
+use crate::mondrian_forest::alias::FType;
 
 use ndarray::{Array1, Array2};
 
@@ -22,7 +23,13 @@ pub struct Node<F> {
     pub threshold: F,   // Threshold in which the split occures
     pub left: Option<usize>,
     pub right: Option<usize>,
-    pub stats: Stats<F>,
+    // Stats moved from "Stats" struct to here
+    // pub stats: Stats<F>,
+    pub sums: Array2<F>,
+    pub sq_sums: Array2<F>,
+    pub counts: Array1<usize>,
+    pub n_labels: usize,
+    pub n_features: usize,
 }
 impl<F: FType + fmt::Display> fmt::Display for Node<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -32,74 +39,54 @@ impl<F: FType + fmt::Display> fmt::Display for Node<F> {
             self.time,
             self.range_min.to_vec(),
             self.range_max.to_vec(),
-            self.stats.counts.to_vec(),
+            self.counts.to_vec(),
         )?;
         Ok(())
     }
 }
 
 impl<F: FType> Node<F> {
-    pub fn update_leaf(&mut self, x: &Array1<F>, y: usize) {
-        self.stats.add(x, y);
+    pub fn update_leaf(&mut self, x: &Array1<F>, y: &ClassifierTarget) {
+        self.add(x, y);
     }
-    pub fn update_internal(&self, left_s: &Stats<F>, right_s: &Stats<F>) -> Stats<F> {
-        left_s.merge(right_s)
-    }
-    /// Check if all the labels are the same in the node.
-    /// e.g. y=2, stats.counts=[0, 1, 10] -> False
-    /// e.g. y=2, stats.counts=[0, 0, 10] -> True
-    /// e.g. y=1, stats.counts=[0, 0, 10] -> False
-    pub fn is_dirac(&self, y: usize) -> bool {
-        return self.stats.counts.sum() == self.stats.counts[y];
-    }
-}
 
-/// Stats assocociated to one node
-///
-/// In nel215 code it is "Classifier"
-#[derive(Clone)]
-pub struct Stats<F> {
-    pub sums: Array2<F>,
-    pub sq_sums: Array2<F>,
-    pub counts: Array1<usize>,
-    n_labels: usize,
-}
-impl<F: FType + fmt::Display> fmt::Display for Stats<F> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "\n┌ Stats")?;
-        // sums
-        write!(f, "│ sums: [")?;
-        for row in self.sums.outer_iter() {
-            write!(f, "{:?}, ", row.to_vec())?;
-        }
-        writeln!(f, "]")?;
-        // sq_sums
-        write!(f, "│ sq_sums: [")?;
-        for row in self.sq_sums.outer_iter() {
-            write!(f, "{:?}, ", row.to_vec())?;
-        }
-        writeln!(f, "]")?;
-        // count
-        write!(f, "└ counts: {}", self.counts)?;
-        Ok(())
+    pub fn update_internal(&mut self, left: Node<F>, right: Node<F>) {
+        self.sums = left.sums + right.sums;
+        self.sq_sums = left.sq_sums + right.sq_sums;
+        self.counts = left.counts + right.counts;
     }
-}
-impl<F: FType> Stats<F> {
-    pub fn new(n_labels: usize, n_features: usize) -> Self {
-        Stats {
-            sums: Array2::zeros((n_labels, n_features)),
-            sq_sums: Array2::zeros((n_labels, n_features)),
-            counts: Array1::zeros(n_labels),
-            n_labels,
-        }
+
+    /// Check if all the labels are the same in the node.
+    /// e.g. y=2, counts=[0, 1, 10] -> False
+    /// e.g. y=2, counts=[0, 0, 10] -> True
+    /// e.g. y=1, counts=[0, 0, 10] -> False
+    pub fn is_dirac(&self, y: &ClassifierTarget) -> bool {
+        let y: usize = (*y).clone().into();
+        return self.counts.sum() == self.counts[y];
     }
+
+    pub fn reset_stats(&mut self) {
+        self.sums = Array2::zeros((self.n_labels, self.n_features));
+        self.sq_sums = Array2::zeros((self.n_labels, self.n_features));
+        self.counts = Array1::zeros(self.n_labels);
+    }
+
+    pub fn copy_stats_from(&mut self, node: &Node<F>) {
+        self.sums = node.sums.clone();
+        self.sq_sums = node.sq_sums.clone();
+        self.counts = node.counts.clone();
+    }
+
     pub fn create_result(&self, x: &Array1<F>, w: F) -> Array1<F> {
         let probs = self.predict_proba(x);
         probs * w
     }
-    pub fn add(&mut self, x: &Array1<F>, y: usize) {
+
+    pub fn add(&mut self, x: &Array1<F>, y: &ClassifierTarget) {
         // Checked on May 29th on few samples, looks correct
         // println!("add() - x={x}, y={y}, count={}, \nsums={}, \nsq_sums={}", self.counts, self.sums, self.sq_sums);
+
+        let y: usize = (*y).clone().into();
 
         // Same as: self.sums[y] += x;
         self.sums.row_mut(y).zip_mut_with(&x, |a, &b| *a += b);
@@ -112,14 +99,7 @@ impl<F: FType> Stats<F> {
 
         // println!("      - y={y}, count={}, \nsums={}, \nsq_sums={}", self.counts, self.sums, self.sq_sums);
     }
-    fn merge(&self, s: &Stats<F>) -> Stats<F> {
-        Stats {
-            sums: self.sums.clone() + &s.sums,
-            sq_sums: self.sq_sums.clone() + &s.sq_sums,
-            counts: self.counts.clone() + &s.counts,
-            n_labels: self.n_labels,
-        }
-    }
+
     /// Return probabilities of sample 'x' belonging to each class.
     pub fn predict_proba(&self, x: &Array1<F>) -> Array1<F> {
         let mut probs = Array1::zeros(self.n_labels);

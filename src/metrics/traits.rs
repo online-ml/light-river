@@ -1,6 +1,6 @@
 use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
-use crate::common::{ClassifierOutput, ClassifierTarget, RegressionTarget};
+use crate::common::{ClassifierOutput, ClassifierTarget, RegressorTarget};
 use num::{Float, FromPrimitive};
 
 pub trait ClassificationMetric<
@@ -25,8 +25,8 @@ pub trait ClassificationMetric<
 
 pub trait RegressionMetric<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign>
 {
-    fn update(&mut self, y_true: RegressionTarget<F>, y_pred: RegressionTarget<F>);
-    fn revert(&mut self, y_true: RegressionTarget<F>, y_pred: RegressionTarget<F>);
+    fn update(&mut self, y_true: RegressorTarget<F>, y_pred: RegressorTarget<F>);
+    fn revert(&mut self, y_true: RegressorTarget<F>, y_pred: RegressorTarget<F>);
     fn get(&self) -> F;
 }
 

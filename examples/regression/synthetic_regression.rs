@@ -1,6 +1,6 @@
-use light_river::regression::mondrian_forest::MondrianForestRegressor;
+use light_river::mondrian_forest::mondrian_forest::MondrianForestRegressor;
 
-use light_river::common::RegressionTarget;
+use light_river::common::{Regressor, RegressorTarget};
 use light_river::datasets::synthetic_regression::SyntheticRegression;
 use light_river::stream::iter_csv::IterCsv;
 use ndarray::Array1;
@@ -56,7 +56,7 @@ fn main() {
 
         // Skip first sample since tree has still no node
         if idx != 0 {
-            let score = mf.score(&x, y);
+            let score = mf.predict_one(&x, &y);
             score_total += score;
             // println!(
             //     "Accuracy: {} / {} = {}",
@@ -70,7 +70,7 @@ fn main() {
         //     break;
         // }
 
-        mf.partial_fit(&x, y);
+        mf.learn_one(&x, &y);
     }
 
     let elapsed_time = now.elapsed();

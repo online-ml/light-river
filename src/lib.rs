@@ -1,9 +1,8 @@
 pub mod anomaly;
-pub mod classification;
 pub mod common;
 pub mod datasets;
 pub mod metrics;
-pub mod regression;
+pub mod mondrian_forest;
 pub mod stream;
 
 #[cfg(test)]
