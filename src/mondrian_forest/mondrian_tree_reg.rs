@@ -82,11 +82,11 @@ impl<F: FType> Regressor<F> for MondrianTreeRegressor<F> {
             None => Some(self.create_leaf(x, y, None, F::zero())),
             Some(root_idx) => Some(self.go_downwards(root_idx, x, y)),
         };
-        println!("learn_one() tree post {}===========", self);
+        // println!("learn_one() tree post {}===========", self);
     }
 
     fn predict_one(&mut self, x: &Array1<F>, y: &RegTarget<F>) -> F {
-        self.test_tree();
+        // self.test_tree();
         self.predict(x, self.root.unwrap(), F::one())
     }
 }
@@ -489,7 +489,7 @@ impl<F: FType> MondrianTreeRegressor<F> {
                 let e_sample = F::from_f32(self.rng.gen::<f32>()).unwrap() * extensions.sum();
                 // DEBUG: shadowing with expected value
                 let e_sample = F::from_f32(0.5).unwrap() * extensions.sum();
-                println!("go_downwards() - split_time: {split_time}, cumsum: {cumsum}, e_sample: {e_sample}");
+                // println!("go_downwards() - split_time: {split_time}, cumsum: {cumsum}, e_sample: {e_sample}");
                 cumsum.iter().position(|&val| val > e_sample).unwrap()
             };
 
@@ -654,7 +654,7 @@ impl<F: FType> MondrianTreeRegressor<F> {
 
         // Generate a result for the current node using its statistics.
         let res = node.create_result(x, p_not_separated_yet * p);
-        println!("predict() - node_idx={node_idx}, res={res}");
+        // println!("predict() - node={node_idx}, res={res}");
         let w = p_not_separated_yet * (F::one() - p);
         if node.is_leaf {
             let res2 = node.create_result(x, w);

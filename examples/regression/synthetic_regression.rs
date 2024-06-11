@@ -52,7 +52,7 @@ fn main() {
 
         let y = data.to_regression_target("label").unwrap();
 
-        println!("=M=1 idx={idx}, x={x}, y={y}");
+        // println!("=M=1 idx={idx}, x={x}, y={y}");
 
         // Skip first sample since tree has still no node
         if idx != 0 {

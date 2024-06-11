@@ -226,15 +226,8 @@ impl<F: FType> NodeRegressor<F> {
 
     pub fn predict(&self, x: &Array1<F>) -> F {
         if self.counts == 0 {
-            println!("  predict() - is=zero");
             F::zero()
         } else {
-            println!(
-                "  predict() - sum={}, count={}, tot={}",
-                self.sums,
-                self.counts,
-                self.sums / F::from_usize(self.counts).unwrap()
-            );
             self.sums / F::from_usize(self.counts).unwrap()
         }
     }
