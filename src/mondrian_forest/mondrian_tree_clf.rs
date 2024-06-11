@@ -350,24 +350,24 @@ impl<F: FType> MondrianTreeClassifier<F> {
                 );
 
                 // Child inside parent
-                // debug_assert!(
-                //     child_inside_parent(node, left),
-                //     "Left child outiside parent area. \nParent {}: {}, \nChild {}: {}\nTree{}",
-                //     node_idx,
-                //     node,
-                //     left_idx,
-                //     left,
-                //     self
-                // );
-                // debug_assert!(
-                //     child_inside_parent(node, right),
-                //     "Right child outiside parent area. \nParent {}: {}, \nChild {}: {}\nTree{}",
-                //     node_idx,
-                //     node,
-                //     right_idx,
-                //     right,
-                //     self
-                // );
+                debug_assert!(
+                    child_inside_parent(node, left),
+                    "Left child outiside parent area. \nParent {}: {}, \nChild {}: {}\nTree{}",
+                    node_idx,
+                    node,
+                    left_idx,
+                    left,
+                    self
+                );
+                debug_assert!(
+                    child_inside_parent(node, right),
+                    "Right child outiside parent area. \nParent {}: {}, \nChild {}: {}\nTree{}",
+                    node_idx,
+                    node,
+                    right_idx,
+                    right,
+                    self
+                );
 
                 // Threshold cuts child
                 debug_assert!(
@@ -611,17 +611,16 @@ impl<F: FType> MondrianTreeClassifier<F> {
                 self.nodes[node_idx].parent = Some(parent_idx);
                 self.nodes[node_idx].time = split_time;
 
-                // This 'if' is required to not break 'child_inside_parent' test. Even though
-                // it's probably correct I'll comment it until we get a 1:1 with River.
-                // if self.nodes[node_idx].is_leaf {
-                self.nodes[node_idx].range_min = Array1::from_elem(self.n_features, F::infinity());
-                self.nodes[node_idx].range_max = Array1::from_elem(self.n_features, -F::infinity());
+                if self.nodes[node_idx].is_leaf {
+                    self.nodes[node_idx].range_min =
+                        Array1::from_elem(self.n_features, F::infinity());
+                    self.nodes[node_idx].range_max =
+                        Array1::from_elem(self.n_features, -F::infinity());
 
-                // Resetting stats
-                // self.nodes[node_idx].stats = Stats::new(self.n_labels, self.n_features);
-                self.nodes[node_idx].reset_stats();
-
-                // }
+                    // Resetting stats
+                    // self.nodes[node_idx].stats = Stats::new(self.n_labels, self.n_features);
+                    self.nodes[node_idx].reset_stats();
+                }
                 // self.update_downwards(parent_idx);
                 self.nodes[parent_idx].add(x, y);
                 return parent_idx;
