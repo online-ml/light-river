@@ -1,6 +1,6 @@
 use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
-use crate::common::{ClassifierOutput, ClassifierTarget};
+use crate::common::{ClassifierOutput, ClfTarget};
 use crate::metrics::confusion::ConfusionMatrix;
 use crate::metrics::traits::ClassificationMetric;
 use num::{Float, FromPrimitive};
@@ -22,7 +22,7 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign>
 {
     fn update(
         &mut self,
-        y_true: &ClassifierTarget,
+        y_true: &ClfTarget,
         y_pred: &ClassifierOutput<F>,
         sample_weight: Option<F>,
     ) {
@@ -30,7 +30,7 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign>
     }
     fn revert(
         &mut self,
-        y_true: &ClassifierTarget,
+        y_true: &ClfTarget,
         y_pred: &ClassifierOutput<F>,
         sample_weight: Option<F>,
     ) {
@@ -53,8 +53,8 @@ mod tests {
     #[test]
     fn test_accuracy_binary_classification() {
         let mut accuracy: Accuracy<f64> = Accuracy::new();
-        let y_trues = vec![ClassifierTarget::Bool(true), ClassifierTarget::Bool(false)];
-        let y_preds = vec![ClassifierTarget::Bool(true), ClassifierTarget::Bool(true)];
+        let y_trues = vec![ClfTarget::Bool(true), ClfTarget::Bool(false)];
+        let y_preds = vec![ClfTarget::Bool(true), ClfTarget::Bool(true)];
         let real_accuracy = 0.5;
         for (y_true, y_pred) in y_trues.iter().zip(y_preds.iter()) {
             accuracy.update(&ClassifierOutput::Prediction(y_true.clone()), y_pred, None);

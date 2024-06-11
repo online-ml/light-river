@@ -1,4 +1,4 @@
-use light_river::common::ClassifierTarget;
+use light_river::common::ClfTarget;
 use light_river::datasets::keystroke::Keystroke;
 use light_river::mondrian_forest::mondrian_forest::{MondrianForest, MondrianForestClassifier};
 
@@ -24,7 +24,7 @@ fn get_labels(transactions: IterCsv<f32, File>) -> Vec<String> {
     let mut labels = vec![];
     for t in transactions {
         let data = t.unwrap();
-        // TODO: use instead 'to_classifier_target' and a vector of 'ClassifierTarget'
+        // TODO: use instead 'to_classifier_target' and a vector of 'ClfTarget'
         let target = data.get_y().unwrap()["subject"].to_string();
         if !labels.contains(&target) {
             labels.push(target);
@@ -59,10 +59,10 @@ fn main() {
 
         let x = data.get_observation();
         let y = data.to_classifier_target("subject").unwrap();
-        // TODO: generalize to non-classification only by implementing 'ClassifierTarget'
+        // TODO: generalize to non-classification only by implementing 'ClfTarget'
         // instead of taking directly the string.
         let y = match y {
-            ClassifierTarget::String(y) => y,
+            ClfTarget::String(y) => y,
             _ => unimplemented!(),
         };
         let y = labels.clone().iter().position(|l| l == &y).unwrap();

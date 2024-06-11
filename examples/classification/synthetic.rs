@@ -1,6 +1,6 @@
 use light_river::mondrian_forest::mondrian_forest::MondrianForestClassifier;
 
-use light_river::common::{Classifier, ClassifierTarget};
+use light_river::common::{Classifier, ClfTarget};
 use light_river::datasets::synthetic::Synthetic;
 use light_river::stream::iter_csv::IterCsv;
 use ndarray::Array1;
@@ -24,7 +24,7 @@ fn get_labels(transactions: IterCsv<f32, File>) -> Vec<String> {
     let mut labels = vec![];
     for t in transactions {
         let data = t.unwrap();
-        // TODO: use instead 'to_classifier_target' and a vector of 'ClassifierTarget'
+        // TODO: use instead 'to_classifier_target' and a vector of 'ClfTarget'
         let target = data.get_y().unwrap()["label"].to_string();
         if !labels.contains(&target) {
             labels.push(target);
@@ -68,11 +68,11 @@ fn main() {
 
         let y = data.to_classifier_target("label").unwrap();
         let y = match y {
-            ClassifierTarget::String(y) => y,
+            ClfTarget::String(y) => y,
             _ => unimplemented!(),
         };
         let y = labels.clone().iter().position(|l| l == &y).unwrap();
-        let y = ClassifierTarget::from(y);
+        let y = ClfTarget::from(y);
         // println!("=M=1 x:{}, idx: {}", x, idx);
 
         // Skip first sample since tree has still no node
@@ -87,7 +87,7 @@ fn main() {
             );
         }
 
-        // if idx == 527 {
+        // if idx == 4 {
         //     break;
         // }
 

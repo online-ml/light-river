@@ -1,6 +1,6 @@
 use light_river::anomaly::half_space_tree::HalfSpaceTree;
 use light_river::common::ClassifierOutput;
-use light_river::common::ClassifierTarget;
+use light_river::common::ClfTarget;
 use light_river::datasets::credit_card::CreditCard;
 use light_river::metrics::rocauc::ROCAUC;
 use light_river::metrics::traits::ClassificationMetric;
@@ -16,7 +16,7 @@ fn main() {
     let window_size: u32 = 1000;
     let n_trees: u32 = 50;
     let height: u32 = 6;
-    let pos_val_metric = ClassifierTarget::from("1".to_string());
+    let pos_val_metric = ClfTarget::from("1".to_string());
     let pos_val_tree = pos_val_metric.clone();
     let mut roc_auc: ROCAUC<f32> = ROCAUC::new(Some(10), pos_val_metric.clone());
     // INITIALIZATION

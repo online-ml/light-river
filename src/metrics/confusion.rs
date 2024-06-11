@@ -5,7 +5,7 @@ use std::{
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
-use crate::common::{ClassifierOutput, ClassifierTarget};
+use crate::common::{ClassifierOutput, ClfTarget};
 
 use num::{Float, FromPrimitive};
 
@@ -19,19 +19,19 @@ use num::{Float, FromPrimitive};
 ///
 /// ```
 /// use light_river::metrics::confusion::ConfusionMatrix;
-/// use light_river::common::{ClassifierTarget, ClassifierOutput};
+/// use light_river::common::{ClfTarget, ClassifierOutput};
 ///
 /// let y_pred = vec![
-///            ClassifierOutput::Prediction(ClassifierTarget::from("ant")),
-///            ClassifierOutput::Prediction(ClassifierTarget::from("ant")),
-///            ClassifierOutput::Prediction(ClassifierTarget::from("cat")),
-///            ClassifierOutput::Prediction(ClassifierTarget::from("cat")),
-///            ClassifierOutput::Prediction(ClassifierTarget::from("ant")),
-///            ClassifierOutput::Prediction(ClassifierTarget::from("cat")),
+///            ClassifierOutput::Prediction(ClfTarget::from("ant")),
+///            ClassifierOutput::Prediction(ClfTarget::from("ant")),
+///            ClassifierOutput::Prediction(ClfTarget::from("cat")),
+///            ClassifierOutput::Prediction(ClfTarget::from("cat")),
+///            ClassifierOutput::Prediction(ClfTarget::from("ant")),
+///            ClassifierOutput::Prediction(ClfTarget::from("cat")),
 /// ];
 /// let y_pred_stream = y_pred.iter();
 /// let y_true: Vec<String> = vec!["cat".to_string(), "ant".to_string(), "cat".to_string(), "cat".to_string(), "ant".to_string(), "bird".to_string()];
-/// let y_true_stream = ClassifierTarget::from_iter(y_true.into_iter());
+/// let y_true_stream = ClfTarget::from_iter(y_true.into_iter());
 ///
 /// let mut cm: ConfusionMatrix<f64> = ConfusionMatrix::new();
 ///
@@ -40,7 +40,7 @@ use num::{Float, FromPrimitive};
 /// }
 ///
 ///
-/// assert_eq!(*cm.get(&ClassifierTarget::from("bird")).get(&ClassifierTarget::from("cat")).unwrap_or(&0.0), 1.0);
+/// assert_eq!(*cm.get(&ClfTarget::from("bird")).get(&ClfTarget::from("cat")).unwrap_or(&0.0), 1.0);
 /// ```
 ///
 /// # Notes
@@ -60,9 +60,9 @@ use num::{Float, FromPrimitive};
 pub struct ConfusionMatrix<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign>
 {
     n_samples: F,
-    data: HashMap<ClassifierTarget, HashMap<ClassifierTarget, F>>,
-    sum_row: HashMap<ClassifierTarget, F>,
-    sum_col: HashMap<ClassifierTarget, F>,
+    data: HashMap<ClfTarget, HashMap<ClfTarget, F>>,
+    sum_row: HashMap<ClfTarget, F>,
+    sum_col: HashMap<ClfTarget, F>,
     pub total_weight: F,
 }
 
@@ -76,7 +76,7 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> C
             total_weight: F::zero(),
         }
     }
-    pub fn get_classes(&self) -> HashSet<ClassifierTarget> {
+    pub fn get_classes(&self) -> HashSet<ClfTarget> {
         // Extracting classes from sum_row and sum_col
         let sum_row_keys = self
             .sum_row
@@ -92,12 +92,7 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> C
         // Combining the classes from sum_row and sum_col
         sum_row_keys.chain(sum_col_keys).collect()
     }
-    fn _update(
-        &mut self,
-        y_pred: &ClassifierOutput<F>,
-        y_true: &ClassifierTarget,
-        sample_weight: F,
-    ) {
+    fn _update(&mut self, y_pred: &ClassifierOutput<F>, y_true: &ClfTarget, sample_weight: F) {
         let label_pred = y_pred.get_predicition();
         let y = y_true.clone();
         let y_row = y.clone();
@@ -123,7 +118,7 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> C
     pub fn update(
         &mut self,
         y_pred: &ClassifierOutput<F>,
-        y_true: &ClassifierTarget,
+        y_true: &ClfTarget,
         sample_weight: Option<F>,
     ) {
         self.n_samples += sample_weight.unwrap_or(F::one());
@@ -132,21 +127,21 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> C
     pub fn revert(
         &mut self,
         y_pred: &ClassifierOutput<F>,
-        y_true: &ClassifierTarget,
+        y_true: &ClfTarget,
         sample_weight: Option<F>,
     ) {
         self.n_samples -= sample_weight.unwrap_or(F::one());
         self._update(y_pred, y_true, -sample_weight.unwrap_or(F::one()));
     }
-    pub fn get(&self, label: &ClassifierTarget) -> HashMap<ClassifierTarget, F> {
+    pub fn get(&self, label: &ClfTarget) -> HashMap<ClfTarget, F> {
         // return rows of the label in the confusion matrix
         self.data.get(label).unwrap_or(&HashMap::new()).clone()
     }
-    pub fn support(&self, label: &ClassifierTarget) -> F {
+    pub fn support(&self, label: &ClfTarget) -> F {
         self.sum_col.get(label).unwrap_or(&F::zero()).clone()
     }
     // For the next session you will check if the implementation of the following methods is correct
-    pub fn true_positives(&self, label: &ClassifierTarget) -> F {
+    pub fn true_positives(&self, label: &ClfTarget) -> F {
         self.data
             .get(label)
             .unwrap_or(&HashMap::new())
@@ -154,7 +149,7 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> C
             .unwrap_or(&F::zero())
             .clone()
     }
-    // pub fn true_negatives(&self, label: &ClassifierTarget) -> F {
+    // pub fn true_negatives(&self, label: &ClfTarget) -> F {
     //     self.total_true_positives() - self.true_positives(label)
     // }
 
@@ -163,7 +158,7 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> C
             .keys()
             .fold(F::zero(), |sum, label| sum + self.true_positives(label))
     }
-    pub fn false_positives(&self, label: &ClassifierTarget) -> F {
+    pub fn false_positives(&self, label: &ClfTarget) -> F {
         *self.sum_col.get(label).unwrap_or(&F::zero()) - self.true_positives(label)
     }
 
@@ -178,7 +173,7 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> C
             .keys()
             .fold(F::zero(), |sum, label| sum + self.false_positives(label))
     }
-    pub fn false_negatives(&self, label: &ClassifierTarget) -> F {
+    pub fn false_negatives(&self, label: &ClfTarget) -> F {
         *self.sum_row.get(label).unwrap_or(&F::zero()) - self.true_positives(label)
     }
     pub fn total_false_negatives(&self) -> F {
@@ -186,7 +181,7 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> C
             .keys()
             .fold(F::zero(), |sum, label| sum + self.false_negatives(label))
     }
-    pub fn true_negatives(&self, label: &ClassifierTarget) -> F {
+    pub fn true_negatives(&self, label: &ClfTarget) -> F {
         self.total_weight
             - *self.sum_row.get(label).unwrap_or(&F::zero())
             - *self.sum_col.get(label).unwrap_or(&F::zero())
@@ -255,12 +250,12 @@ mod tests {
     #[test]
     fn test_confusion_matrix() {
         let y_pred = vec![
-            ClassifierOutput::Prediction(ClassifierTarget::from("ant")),
-            ClassifierOutput::Prediction(ClassifierTarget::from("ant")),
-            ClassifierOutput::Prediction(ClassifierTarget::from("cat")),
-            ClassifierOutput::Prediction(ClassifierTarget::from("cat")),
-            ClassifierOutput::Prediction(ClassifierTarget::from("ant")),
-            ClassifierOutput::Prediction(ClassifierTarget::from("cat")),
+            ClassifierOutput::Prediction(ClfTarget::from("ant")),
+            ClassifierOutput::Prediction(ClfTarget::from("ant")),
+            ClassifierOutput::Prediction(ClfTarget::from("cat")),
+            ClassifierOutput::Prediction(ClfTarget::from("cat")),
+            ClassifierOutput::Prediction(ClfTarget::from("ant")),
+            ClassifierOutput::Prediction(ClfTarget::from("cat")),
         ];
         let y_pred_stream = y_pred.iter();
         let y_true: Vec<String> = vec![
@@ -271,7 +266,7 @@ mod tests {
             "ant".to_string(),
             "bird".to_string(),
         ];
-        let y_true_stream = ClassifierTarget::from_iter(y_true.into_iter());
+        let y_true_stream = ClfTarget::from_iter(y_true.into_iter());
 
         let mut cm: ConfusionMatrix<f64> = ConfusionMatrix::new();
 
@@ -280,8 +275,8 @@ mod tests {
         }
         println!("{:?}", cm);
         assert_eq!(
-            *cm.get(&ClassifierTarget::from("bird"))
-                .get(&ClassifierTarget::from("cat"))
+            *cm.get(&ClfTarget::from("bird"))
+                .get(&ClfTarget::from("cat"))
                 .unwrap_or(&0.0),
             1.0
         );
@@ -289,22 +284,22 @@ mod tests {
     #[test]
     fn test_confusion_matrix_issue() {
         let y_pred = vec![
-            ClassifierOutput::Prediction(ClassifierTarget::from("cat")),
-            ClassifierOutput::Prediction(ClassifierTarget::from("dog")),
-            ClassifierOutput::Prediction(ClassifierTarget::from("bird")),
-            ClassifierOutput::Prediction(ClassifierTarget::from("cat")),
+            ClassifierOutput::Prediction(ClfTarget::from("cat")),
+            ClassifierOutput::Prediction(ClfTarget::from("dog")),
+            ClassifierOutput::Prediction(ClfTarget::from("bird")),
+            ClassifierOutput::Prediction(ClfTarget::from("cat")),
         ];
         let y_true: Vec<&str> = vec!["cat", "cat", "dog", "cat"];
-        let y_true_stream = ClassifierTarget::from_iter(y_true.into_iter());
+        let y_true_stream = ClfTarget::from_iter(y_true.into_iter());
         let mut cm: ConfusionMatrix<f64> = ConfusionMatrix::new();
         let mut iteration: usize = 0;
         for (yt, yp) in y_true_stream.zip(y_pred.iter()) {
             cm.update(&yp, &yt, Some(1.0));
 
-            let tp = cm.true_positives(&ClassifierTarget::from("cat"));
-            let tn = cm.true_negatives(&ClassifierTarget::from("cat"));
-            let fp = cm.false_positives(&ClassifierTarget::from("cat"));
-            let fn_ = cm.false_negatives(&ClassifierTarget::from("cat"));
+            let tp = cm.true_positives(&ClfTarget::from("cat"));
+            let tn = cm.true_negatives(&ClfTarget::from("cat"));
+            let fp = cm.false_positives(&ClfTarget::from("cat"));
+            let fn_ = cm.false_negatives(&ClfTarget::from("cat"));
             println!("iteration: {}", iteration);
             println!("tp: {}, tn: {}, fp: {}, fn: {}", tp, tn, fp, fn_);
             println!("data :{:?}", cm.data);
@@ -318,10 +313,10 @@ mod tests {
 
             iteration += 1;
         }
-        let tp = cm.true_positives(&ClassifierTarget::from("cat"));
-        let tn = cm.true_negatives(&ClassifierTarget::from("cat"));
-        let fp = cm.false_positives(&ClassifierTarget::from("cat"));
-        let fn_ = cm.false_negatives(&ClassifierTarget::from("cat"));
+        let tp = cm.true_positives(&ClfTarget::from("cat"));
+        let tn = cm.true_negatives(&ClfTarget::from("cat"));
+        let fp = cm.false_positives(&ClfTarget::from("cat"));
+        let fn_ = cm.false_negatives(&ClfTarget::from("cat"));
         assert!(tp == 2.0);
         assert!(tn == 1.0);
         assert!(fp == 0.0);

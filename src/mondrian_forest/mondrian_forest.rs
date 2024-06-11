@@ -1,8 +1,6 @@
-use crate::common::{
-    Classifier, ClassifierTarget, ModelTarget, Observation, Regressor, RegressorTarget,
-};
+use crate::common::{Classifier, ClfTarget, ModelTarget, Observation, RegTarget, Regressor};
 use crate::mondrian_forest::alias::FType;
-use crate::mondrian_forest::mondrian_tree::MondrianTreeClassifier;
+use crate::mondrian_forest::mondrian_tree_clf::MondrianTreeClassifier;
 use ndarray::Array1; // Importing the required traits
 
 use num::{Float, FromPrimitive};
@@ -12,7 +10,7 @@ use std::collections::HashMap;
 
 use std::usize;
 
-use super::mondrian_tree::MondrianTreeRegressor;
+use super::mondrian_tree_reg::MondrianTreeRegressor;
 
 pub struct MondrianForestClassifier<F: FType> {
     trees: Vec<MondrianTreeClassifier<F>>,
@@ -32,14 +30,14 @@ impl<F: FType> MondrianForestClassifier<F> {
 }
 
 impl<F: FType> Classifier<F> for MondrianForestClassifier<F> {
-    fn learn_one(&mut self, x: &Array1<F>, y: &ClassifierTarget) {
+    fn learn_one(&mut self, x: &Array1<F>, y: &ClfTarget) {
         for tree in &mut self.trees {
             tree.learn_one(x, y);
         }
     }
 
     // TODO: rename function to "predict_proba" both in trait and here
-    fn predict_one(&mut self, x: &Array1<F>, y: &ClassifierTarget) -> F {
+    fn predict_one(&mut self, x: &Array1<F>, y: &ClfTarget) -> F {
         let y = (*y).clone().into();
         let probs = self.predict_proba(x);
         let pred_idx = probs
@@ -89,13 +87,18 @@ impl<F: FType> MondrianForestRegressor<F> {
 }
 
 impl<F: FType> Regressor<F> for MondrianForestRegressor<F> {
-    fn learn_one(&mut self, x: &Array1<F>, y: &RegressorTarget<F>) {
+    fn learn_one(&mut self, x: &Array1<F>, y: &RegTarget<F>) {
         for tree in &mut self.trees {
             tree.learn_one(x, y);
         }
     }
 
-    fn predict_one(&mut self, x: &Array1<F>, y: &RegressorTarget<F>) -> F {
-        F::one()
+    fn predict_one(&mut self, x: &Array1<F>, y: &RegTarget<F>) -> F {
+        let mut pred_tot = F::zero();
+        for tree in &mut self.trees {
+            pred_tot += tree.predict_one(x, y);
+        }
+        pred_tot /= F::from_usize(self.trees.len()).unwrap();
+        pred_tot
     }
 }

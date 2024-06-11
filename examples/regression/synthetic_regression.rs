@@ -1,6 +1,6 @@
 use light_river::mondrian_forest::mondrian_forest::MondrianForestRegressor;
 
-use light_river::common::{Regressor, RegressorTarget};
+use light_river::common::{RegTarget, Regressor};
 use light_river::datasets::synthetic_regression::SyntheticRegression;
 use light_river::stream::iter_csv::IterCsv;
 use ndarray::Array1;
@@ -52,18 +52,13 @@ fn main() {
 
         let y = data.to_regression_target("label").unwrap();
 
-        // println!("=M=1 x:{}, idx: {}", x, idx);
+        println!("=M=1 idx={idx}, x={x}, y={y}");
 
         // Skip first sample since tree has still no node
         if idx != 0 {
-            let score = mf.predict_one(&x, &y);
-            score_total += score;
-            // println!(
-            //     "Accuracy: {} / {} = {}",
-            //     score_total,
-            //     dataset_size - 1,
-            //     score_total / idx.to_f32().unwrap()
-            // );
+            let pred = mf.predict_one(&x, &y);
+            let err = (pred - y).powi(2);
+            println!("pred: {pred}, y: {y}, err: {err}");
         }
 
         // if idx == 527 {
