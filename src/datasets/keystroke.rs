@@ -18,21 +18,14 @@ use std::{fs::File, path::Path};
 /// [^1]: [Keystroke Dynamics - Benchmark Data Set](http://www.cs.cmu.edu/~keystroke/)
 pub struct Keystroke;
 impl Keystroke {
-    pub fn load_data() -> Result<IterCsv<f32, File>, Box<dyn std::error::Error>> {
+    pub fn load_data() -> IterCsv<f32, File> {
         let url = "http://www.cs.cmu.edu/~keystroke/DSL-StrongPasswordData.csv";
         let file_name = "keystroke.csv";
-
         if !Path::new(file_name).exists() {
             utils::download_csv_file(url, file_name);
         }
-        let file = File::open(file_name)?;
+        let file = File::open(file_name).unwrap();
         let y_cols = Some(Target::Name("subject".to_string()));
-
-        // TODO: Drop "sessionIndex" and "rep"
-
-        match IterCsv::<f32, File>::new(file, y_cols) {
-            Ok(x) => Ok(x),
-            Err(e) => Err(Box::new(e)),
-        }
+        IterCsv::<f32, File>::new(file, y_cols).unwrap()
     }
 }

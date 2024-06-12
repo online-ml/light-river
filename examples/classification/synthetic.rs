@@ -20,12 +20,12 @@ fn get_features(transactions: IterCsv<f32, File>) -> Vec<String> {
     out
 }
 
-fn get_labels(transactions: IterCsv<f32, File>) -> Vec<String> {
+fn get_labels(transactions: IterCsv<f32, File>, label_name: &str) -> Vec<String> {
     let mut labels = vec![];
     for t in transactions {
         let data = t.unwrap();
         // TODO: use instead 'to_classifier_target' and a vector of 'ClfTarget'
-        let target = data.get_y().unwrap()["label"].to_string();
+        let target = data.get_y().unwrap()[label_name].to_string();
         if !labels.contains(&target) {
             labels.push(target);
         }
@@ -48,7 +48,7 @@ fn main() {
     let features = get_features(transactions_f);
 
     let transactions_c = Synthetic::load_data();
-    let labels = get_labels(transactions_c);
+    let labels = get_labels(transactions_c, "label");
     println!("labels: {labels:?}, features: {features:?}");
     let mut mf: MondrianForestClassifier<f32> =
         MondrianForestClassifier::new(n_trees, features.len(), labels.len());
