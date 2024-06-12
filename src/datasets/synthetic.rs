@@ -5,9 +5,9 @@ use std::path::Path;
 
 use super::utils;
 
-/// ChatGPT Generated synthetic dataset.
+/// Scikit learn synthetic dataset for classification.
 ///
-/// Add 'synthetic.csv' to project root directory.
+/// Genearted using 'make_classification' API.
 pub struct Synthetic;
 impl Synthetic {
     pub fn load_data() -> IterCsv<f32, File> {
