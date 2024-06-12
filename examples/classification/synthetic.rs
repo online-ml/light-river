@@ -79,12 +79,12 @@ fn main() {
         if idx != 0 {
             let score = mf.predict_one(&x, &y);
             score_total += score;
-            println!(
-                "Accuracy: {} / {} = {}",
-                score_total,
-                dataset_size - 1,
-                score_total / idx.to_f32().unwrap()
-            );
+            // println!(
+            //     "Accuracy: {} / {} = {}",
+            //     score_total,
+            //     dataset_size - 1,
+            //     score_total / idx.to_f32().unwrap()
+            // );
         }
 
         // if idx == 4 {

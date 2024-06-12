@@ -36,7 +36,7 @@ fn main() {
 
     let mut mf: MondrianForestRegressor<f32> =
         MondrianForestRegressor::new(n_trees, features.len());
-    let mut score_total = 0.0;
+    let mut err_total = 0.0;
 
     let transactions_l = SyntheticRegression::load_data();
     let dataset_size = get_dataset_size(transactions_l);
@@ -58,7 +58,8 @@ fn main() {
         if idx != 0 {
             let pred = mf.predict_one(&x, &y);
             let err = (pred - y).powi(2);
-            println!("pred: {pred}, y: {y}, err: {err}");
+            err_total += err;
+            // println!("pred: {pred}, y: {y}, err: {err}");
         }
 
         // if idx == 527 {
@@ -73,9 +74,9 @@ fn main() {
 
     println!(
         "Accuracy: {} / {} = {}",
-        score_total,
+        err_total,
         dataset_size - 1,
-        score_total / (dataset_size - 1).to_f32().unwrap()
+        err_total / (dataset_size - 1).to_f32().unwrap()
     );
 
     let forest_size = mf.get_forest_size();

@@ -90,12 +90,12 @@ impl<F: FType> Classifier<F> for MondrianTreeClassifier<F> {
             None => Some(self.create_leaf(x, y, None, F::zero())),
             Some(root_idx) => Some(self.go_downwards(root_idx, x, y)),
         };
-        println!("partial_fit() tree post {}===========", self);
+        // println!("partial_fit() tree post {}===========", self);
     }
 
     fn predict_proba(&self, x: &Array1<F>) -> Array1<F> {
         // println!("predict_proba() - tree size: {}", self.nodes.len());
-        self.test_tree();
+        // self.test_tree();
         self.predict(x, self.root.unwrap(), F::one())
     }
 
@@ -517,7 +517,7 @@ impl<F: FType> MondrianTreeClassifier<F> {
                 let e_sample = F::from_f32(self.rng.gen::<f32>()).unwrap() * extensions.sum();
                 // DEBUG: shadowing with expected value
                 let e_sample = F::from_f32(0.5).unwrap() * extensions.sum();
-                println!("go_downwards() - cumsum: {cumsum}, e_sample: {e_sample}");
+                // println!("go_downwards() - cumsum: {cumsum}, e_sample: {e_sample}");
                 cumsum.iter().position(|&val| val > e_sample).unwrap()
             };
 
