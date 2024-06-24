@@ -1,16 +1,16 @@
-from river.forest import AMFClassifier
+from river.forest import AMFClassifier, AMFRegressor
 from time import time
 import pandas as pd
 from river.tree.mondrian.mondrian_tree_nodes import MondrianLeafClassifier
 from river.tree.mondrian.mondrian_tree_nodes import MondrianBranchClassifier
 
-mf = AMFClassifier(
+mf = AMFRegressor(
     n_estimators=1,
     use_aggregation=False,
 )
 
-df = pd.read_csv("/home/robotics/light-river/syntetic_dataset.csv")
-# df = pd.read_csv("/home/robotics/light-river/syntetic_dataset_paper.csv")
+# df = pd.read_csv("/home/robotics/light-river/syntetic_dataset_v2.3.csv")
+df = pd.read_csv("/home/robotics/light-river/syntetic_reg_dataset_v2.2.csv")
 X = df[["feature_1", "feature_2"]]
 y = df["label"].values
 
@@ -30,18 +30,16 @@ def count_nodes(node):
 
 # for i, ((_, x), true_label) in enumerate(zip(X.iterrows(), y), 1):
 for i, ((_, x), true_label) in enumerate(zip(X.iterrows(), y)):
-    pred_proba = mf.predict_proba_one(x.to_dict())
-    if pred_proba:
-        predicted_label = max(pred_proba, key=pred_proba.get)
-        if predicted_label == true_label:
-            score_total += 1
+    prob = mf.predict_one(x.to_dict())
+    if prob:
+        score_total += prob
 
-        print(
-            f"{score_total} / {i} = {score_total/i}, nodes:",
-            count_nodes(mf.data[0]._root),
-        )
+    # print(
+    #     f"{score_total} / {i} = {score_total/i}, nodes:",
+    #     count_nodes(mf.data[0]._root),
+    # )
 
-    print("=M=1 x:", list(x.to_dict().values()))
+    # print("=M=1 x:", list(x.to_dict().values()))
     mf.learn_one(x.to_dict(), true_label)
 
     # if counter > 10:
