@@ -43,7 +43,9 @@ cargo run --release --example credit_card
 
 ### 📊 Classification
 
-🏗️ We plan to implement Aggregated Mondrian Forests.
+```sh
+RUSTFLAGS=-Awarnings cargo run --example synthetic
+```
 
 ### 🛒 Recsys
 

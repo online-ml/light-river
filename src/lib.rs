@@ -2,6 +2,7 @@ pub mod anomaly;
 pub mod common;
 pub mod datasets;
 pub mod metrics;
+pub mod mondrian_forest;
 pub mod stream;
 
 #[cfg(test)]

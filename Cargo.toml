@@ -15,6 +15,8 @@ zip = "0.6.4"
 rand = "0.8.5"
 time = "0.3.29"
 half = "2.3.1"
+ndarray = "0.15.6"
+rand_distr = "0.4.3"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
@@ -28,6 +30,18 @@ opt-level = 3
 [[example]]
 name = "credit_card"
 path = "examples/anomaly_detection/credit_card.rs"
+
+[[example]]
+name = "keystroke"
+path = "examples/classification/keystroke.rs"
+
+[[example]]
+name = "synthetic"
+path = "examples/classification/synthetic.rs"
+
+[[example]]
+name = "synthetic-regression"
+path = "examples/regression/synthetic_regression.rs"
 
 [[bench]]
 name = "hst"

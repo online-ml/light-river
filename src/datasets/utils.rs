@@ -1,5 +1,6 @@
 use reqwest::blocking::Client;
 use std::fs::File;
+use std::io;
 use std::path::Path;
 use zip::ZipArchive;
 
@@ -29,4 +30,11 @@ pub(crate) fn download_zip_file(
     std::fs::rename(tmp_path, data_path)?;
 
     Ok(())
+}
+
+pub(crate) fn download_csv_file(url: &str, file_name: &str) {
+    let resp = reqwest::blocking::get(url).expect("request failed");
+    let body = resp.text().expect("body invalid");
+    let mut out = File::create(file_name).expect("failed to create file");
+    io::copy(&mut body.as_bytes(), &mut out).expect("failed to copy content");
 }

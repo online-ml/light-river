@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
-use crate::common::{ClassifierTarget, Observation};
+use crate::common::{ClfTarget, Observation, RegTarget};
 use num::Float;
 
 /// This enum allows you to choose whether to define a single target (Name) or multiple targets (MultipleNames).
@@ -80,6 +80,7 @@ impl<F: Float + std::fmt::Display + std::str::FromStr> Data<F> {
     }
 }
 
+#[derive(Debug)]
 pub enum DataStream<F: Float + std::str::FromStr> {
     X(HashMap<String, Data<F>>),
     XY(HashMap<String, Data<F>>, HashMap<String, Data<F>>),
@@ -110,6 +111,9 @@ impl<F: Float + fmt::Display + std::str::FromStr> fmt::Display for DataStream<F>
 }
 
 impl<F: Float + std::str::FromStr + std::fmt::Display> DataStream<F> {
+    /// **get_x()**: e.g. {"H.t": Scalar(0.1069), "H.Return": Scalar(0.0742), ...}
+    ///
+    /// **get_observation()**: e.g. {"H.t": 0.1069, "H.Return": 0.0742, ...}
     pub fn get_x(&self) -> &HashMap<String, Data<F>> {
         match self {
             DataStream::X(x) => x,
@@ -117,23 +121,48 @@ impl<F: Float + std::str::FromStr + std::fmt::Display> DataStream<F> {
         }
     }
 
-    pub fn to_classifier_target(&self, target_key: &str) -> Result<ClassifierTarget, &str> {
+    /// **get_y()**: e.g. {"subject": String("s002")}
+    ///
+    /// **to_classifier_target()**: e.g. String("s002")
+    pub fn to_classifier_target(&self, target_key: &str) -> Result<ClfTarget, &str> {
         match self {
             DataStream::X(_) => Err("No y data"),
             // Use data to float
             DataStream::XY(_, y) => {
                 let y = y.get(target_key).unwrap();
-                Ok(ClassifierTarget::from(y.to_string()))
+                Ok(ClfTarget::from(y.to_string()))
             }
         }
     }
 
+    // TODO: update values in docstring
+    /// **get_y()**: e.g. {"subject": ????????}
+    ///
+    /// **to_regression_target()**: e.g. ??????
+    pub fn to_regression_target(&self, target_key: &str) -> Result<RegTarget<F>, &str> {
+        match self {
+            DataStream::X(_) => Err("No y data"),
+            // Use data to float
+            DataStream::XY(_, y) => {
+                let y = y.get(target_key).unwrap();
+                Ok(RegTarget::<F>::from(y.to_float().unwrap()).unwrap())
+            }
+        }
+    }
+
+    /// **get_y()**: e.g. {"subject": String("s002")}
+    ///
+    /// **to_classifier_target()**: e.g. String("s002")
     pub fn get_y(&self) -> Result<&HashMap<String, Data<F>>, &str> {
         match self {
             DataStream::X(_) => Err("No y data"),
             DataStream::XY(_, y) => Ok(y),
         }
     }
+
+    /// **get_x()**: e.g. {"H.t": Scalar(0.1069), "H.Return": Scalar(0.0742), ...}
+    ///
+    /// **get_observation()**: e.g. {"H.t": 0.1069, "H.Return": 0.0742, ...}
     pub fn get_observation(&self) -> Observation<F> {
         match self {
             DataStream::X(x) | DataStream::XY(x, _) => {

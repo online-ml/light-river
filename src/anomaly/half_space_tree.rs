@@ -8,7 +8,7 @@ use std::convert::TryFrom;
 use std::mem;
 use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
-use crate::common::{ClassifierOutput, ClassifierTarget, Observation};
+use crate::common::{ClassifierOutput, ClfTarget, Observation};
 
 // Return the index of a node's left child node.
 #[inline]
@@ -66,6 +66,7 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> T
         hst
     }
 }
+
 /// Half-space trees are an online variant of isolation forests.
 /// They work well when anomalies are spread out.
 /// However, they do not work well if anomalies are packed together in windows.
@@ -96,7 +97,7 @@ pub struct HalfSpaceTree<F: Float + FromPrimitive + AddAssign + SubAssign + MulA
     n_nodes: u32,
     trees: Option<Trees<F>>,
     first_learn: bool,
-    pos_val: Option<ClassifierTarget>,
+    pos_val: Option<ClfTarget>,
 }
 impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> HalfSpaceTree<F> {
     pub fn new(
@@ -104,7 +105,7 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> H
         n_trees: u32,
         height: u32,
         features: Option<Vec<String>>,
-        pos_val: Option<ClassifierTarget>,
+        pos_val: Option<ClfTarget>,
         // rng: ThreadRng,
     ) -> Self {
         // let mut rng = rand::thread_rng();
@@ -219,9 +220,7 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign + MulAssign + DivAssign> H
             score = F::one() - (score / self.max_score());
 
             return Some(ClassifierOutput::Probabilities(HashMap::from([(
-                ClassifierTarget::from(
-                    self.pos_val.clone().unwrap_or(ClassifierTarget::from(true)),
-                ),
+                ClfTarget::from(self.pos_val.clone().unwrap_or(ClfTarget::from(true))),
                 score,
             )])));
             // return Some(score);
@@ -261,7 +260,7 @@ mod tests {
             n_trees,
             height,
             None,
-            Some(ClassifierTarget::from("1".to_string())),
+            Some(ClfTarget::from("1".to_string())),
         );
 
         // LOOP
@@ -273,10 +272,7 @@ mod tests {
             let _ = hst.update(&observation, true, true);
         }
     }
-}
 
-mod tests {
-    use super::*;
     #[test]
     fn test_left_child() {
         let node = 42;
